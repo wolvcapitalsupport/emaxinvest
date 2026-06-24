@@ -1,0 +1,85 @@
+{
+  "name": "Investment",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "plan": {
+      "type": "string",
+      "enum": [
+        "Foundation",
+        "Growth",
+        "Accelerator",
+        "Legacy"
+      ]
+    },
+    "amount": {
+      "type": "number"
+    },
+    "roi_percentage": {
+      "type": "number"
+    },
+    "duration_days": {
+      "type": "number"
+    },
+    "expected_return": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "active",
+        "completed",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "payment_proof": {
+      "type": "string"
+    },
+    "payment_method": {
+      "type": "string"
+    },
+    "wallet_address": {
+      "type": "string"
+    },
+    "admin_note": {
+      "type": "string"
+    },
+    "approved_date": {
+      "type": "string"
+    },
+    "maturity_date": {
+      "type": "string"
+    },
+    "roi_credited": {
+      "type": "boolean",
+      "default": false
+    },
+    "roi_credited_date": {
+      "type": "string"
+    },
+    "payout_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "processing",
+        "paid"
+      ],
+      "default": "pending"
+    }
+  },
+  "required": [
+    "user_id",
+    "plan",
+    "amount"
+  ]
+}

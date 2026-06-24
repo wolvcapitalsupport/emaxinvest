@@ -1,0 +1,68 @@
+{
+  "name": "UserProfile",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "full_name": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string"
+    },
+    "wallet_balance": {
+      "type": "number",
+      "default": 0
+    },
+    "total_invested": {
+      "type": "number",
+      "default": 0
+    },
+    "total_roi_earned": {
+      "type": "number",
+      "default": 0
+    },
+    "total_withdrawn": {
+      "type": "number",
+      "default": 0
+    },
+    "kyc_status": {
+      "type": "string",
+      "enum": [
+        "not_submitted",
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "not_submitted"
+    },
+    "account_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "suspended",
+        "banned"
+      ],
+      "default": "active"
+    },
+    "referral_code": {
+      "type": "string"
+    },
+    "referred_by": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "user_id"
+  ]
+}

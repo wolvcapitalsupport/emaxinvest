@@ -1,0 +1,277 @@
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import AppLayout from "@/components/layout/AppLayout";
+import { INVESTMENT_PLANS, calcExpectedReturn } from "@/lib/plans";
+import { CheckCircle, Upload, X } from "lucide-react";
+
+const planBorderColors = {
+  Foundation: "border-slate-700 data-[selected=true]:border-slate-400",
+  Growth: "border-blue-800 data-[selected=true]:border-blue-500",
+  Accelerator: "border-amber-800 data-[selected=true]:border-amber-500",
+  Legacy: "border-yellow-700 data-[selected=true]:border-yellow-400"
+};
+
+export default function Invest() {
+  const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [step, setStep] = useState(1); // 1: select plan, 2: payment details
+  const [form, setForm] = useState({ payment_method: "", wallet_address: "", payment_proof: "" });
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  const loadUser = async () => {
+    const u = await base44.auth.me();
+    setUser(u);
+    const profiles = await base44.entities.UserProfile.filter({ user_id: u.id });
+    setUserProfile(profiles[0] || null);
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setForm(f => ({ ...f, payment_proof: file_url }));
+    } catch (err) {
+      setError("Failed to upload file. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedPlan) return;
+    if (!form.payment_method.trim()) { setError("Please enter your payment method."); return; }
+    setError("");
+    setSubmitting(true);
+    try {
+      const plan = INVESTMENT_PLANS.find(p => p.name === selectedPlan);
+      const expectedReturn = calcExpectedReturn(plan.amount, plan.roi);
+      await base44.entities.Investment.create({
+        user_id: user.id,
+        user_email: user.email,
+        user_name: user.full_name,
+        plan: plan.name,
+        amount: plan.amount,
+        roi_percentage: plan.roi,
+        duration_days: plan.duration,
+        expected_return: expectedReturn,
+        status: "pending",
+        payment_method: form.payment_method,
+        wallet_address: form.wallet_address,
+        payment_proof: form.payment_proof
+      });
+      // Log transaction
+      await base44.entities.Transaction.create({
+        user_id: user.id,
+        user_email: user.email,
+        investment_id: "",
+        type: "deposit",
+        amount: plan.amount,
+        description: `${plan.name} plan investment submitted — awaiting approval`,
+        status: "pending"
+      });
+      setSuccess(true);
+    } catch (err) {
+      setError("Submission failed. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <AppLayout user={user} userProfile={userProfile}>
+        <div className="max-w-md mx-auto mt-20 text-center">
+          <div className="w-20 h-20 bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle size={36} className="text-green-400" />
+          </div>
+          <h2 className="text-2xl font-display font-bold mb-3">Investment Submitted!</h2>
+          <p className="text-muted-foreground text-sm mb-6">
+            Your investment request for the <strong className="text-primary">{selectedPlan}</strong> plan has been submitted and is pending admin approval. You'll be notified once it's approved.
+          </p>
+          <button
+            onClick={() => { setSuccess(false); setStep(1); setSelectedPlan(null); setForm({ payment_method: "", wallet_address: "", payment_proof: "" }); }}
+            className="px-6 py-3 rounded-xl gold-gradient text-black font-semibold text-sm"
+          >
+            Invest Again
+          </button>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  return (
+    <AppLayout user={user} userProfile={userProfile}>
+      <div className="max-w-5xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-display font-bold mb-1">Choose Your Plan</h1>
+          <p className="text-muted-foreground text-sm">Select an investment plan and submit your payment details for admin approval</p>
+        </div>
+
+        {/* Step Indicator */}
+        <div className="flex items-center gap-3">
+          {[1, 2].map(s => (
+            <div key={s} className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${step >= s ? "gold-gradient text-black" : "bg-secondary text-muted-foreground"}`}>
+                {s}
+              </div>
+              <span className={`text-sm hidden sm:block ${step >= s ? "text-foreground" : "text-muted-foreground"}`}>
+                {s === 1 ? "Select Plan" : "Payment Details"}
+              </span>
+              {s < 2 && <div className={`w-8 h-px mx-2 ${step > s ? "bg-primary" : "bg-border"}`} />}
+            </div>
+          ))}
+        </div>
+
+        {step === 1 && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {INVESTMENT_PLANS.map(plan => {
+                const expectedReturn = calcExpectedReturn(plan.amount, plan.roi);
+                const selected = selectedPlan === plan.name;
+                return (
+                  <button
+                    key={plan.name}
+                    data-selected={selected}
+                    onClick={() => setSelectedPlan(plan.name)}
+                    className={`relative text-left rounded-2xl border-2 p-5 transition-all duration-200 hover:scale-102 ${planBorderColors[plan.name]} ${selected ? "bg-primary/10 ring-1 ring-primary/40" : "bg-card"}`}
+                  >
+                    {selected && (
+                      <div className="absolute top-3 right-3 w-6 h-6 gold-gradient rounded-full flex items-center justify-center">
+                        <CheckCircle size={14} className="text-black" />
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground font-medium mb-1">{plan.badge}</p>
+                    <h3 className="text-lg font-display font-bold mb-2">{plan.name}</h3>
+                    <p className="text-2xl font-display font-bold gold-text mb-3">${plan.amount.toLocaleString()}</p>
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Duration</span>
+                        <span className="font-medium">{plan.duration} days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">ROI</span>
+                        <span className="font-bold text-primary">{plan.roi}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Returns</span>
+                        <span className="font-semibold text-green-400">${expectedReturn.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex justify-end">
+              <button
+                disabled={!selectedPlan}
+                onClick={() => setStep(2)}
+                className="px-8 py-3 rounded-xl gold-gradient text-black font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:opacity-90"
+              >
+                Continue to Payment →
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 2 && selectedPlan && (
+          <div className="max-w-xl">
+            {/* Plan Summary */}
+            {(() => {
+              const plan = INVESTMENT_PLANS.find(p => p.name === selectedPlan);
+              return (
+                <div className="bg-primary/10 border border-primary/20 rounded-2xl p-5 mb-6">
+                  <p className="text-xs text-muted-foreground mb-1">Selected Plan</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-display font-bold text-xl">{plan.name}</p>
+                      <p className="text-sm text-muted-foreground">{plan.duration} days · {plan.roi}% ROI</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-display font-bold text-2xl gold-text">${plan.amount.toLocaleString()}</p>
+                      <p className="text-xs text-green-400">Returns: ${calcExpectedReturn(plan.amount, plan.roi).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
+              <h3 className="font-semibold">Payment Details</h3>
+
+              <div>
+                <label className="text-sm text-muted-foreground block mb-2">Payment Method *</label>
+                <input
+                  value={form.payment_method}
+                  onChange={e => setForm(f => ({ ...f, payment_method: e.target.value }))}
+                  placeholder="e.g. Bitcoin, Bank Transfer, USDT"
+                  className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-muted-foreground block mb-2">Your Wallet / Account (optional)</label>
+                <input
+                  value={form.wallet_address}
+                  onChange={e => setForm(f => ({ ...f, wallet_address: e.target.value }))}
+                  placeholder="Your wallet address or bank account"
+                  className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-muted-foreground block mb-2">Payment Proof (optional)</label>
+                {form.payment_proof ? (
+                  <div className="flex items-center gap-2 p-3 bg-green-900/20 border border-green-700/30 rounded-xl">
+                    <CheckCircle size={16} className="text-green-400" />
+                    <span className="text-sm text-green-300 flex-1 truncate">File uploaded</span>
+                    <button onClick={() => setForm(f => ({ ...f, payment_proof: "" }))} className="text-muted-foreground hover:text-destructive">
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className={`flex items-center gap-3 p-4 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 transition-colors ${uploading ? "opacity-50" : ""}`}>
+                    <Upload size={20} className="text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">{uploading ? "Uploading..." : "Click to upload screenshot or receipt"}</span>
+                    <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,.pdf" disabled={uploading} />
+                  </label>
+                )}
+              </div>
+
+              {error && (
+                <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setStep(1)}
+                  className="flex-1 py-3 rounded-xl border border-border text-sm font-medium hover:bg-secondary transition-colors"
+                >
+                  ← Back
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="flex-1 py-3 rounded-xl gold-gradient text-black font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition-all"
+                >
+                  {submitting ? "Submitting..." : "Submit Investment"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
