@@ -52,10 +52,10 @@ export default function AppLayout({ children, user, userProfile }) {
       {/* Logo */}
       <div className="p-6 border-b border-border">
         <Link to="/dashboard" className="flex items-center gap-2">
-          <div className="w-8 h-8 gold-gradient rounded-lg flex items-center justify-center">
-            <span className="text-xs font-bold text-black">E</span>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(147, 197, 253, 0.15)", border: "1px solid rgba(147, 197, 253, 0.3)" }}>
+            <span className="text-xs font-bold text-blue-200">E</span>
           </div>
-          <span className="text-xl font-display font-bold gold-text">EMAX</span>
+          <span className="text-xl font-bold text-white font-body">EMAX</span>
         </Link>
       </div>
 
@@ -129,10 +129,10 @@ export default function AppLayout({ children, user, userProfile }) {
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <div className="flex items-center gap-2 lg:hidden">
-            <div className="w-6 h-6 gold-gradient rounded-md flex items-center justify-center">
-              <span className="text-xs font-bold text-black">E</span>
+            <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: "rgba(147, 197, 253, 0.15)", border: "1px solid rgba(147, 197, 253, 0.3)" }}>
+              <span className="text-xs font-bold text-blue-200">E</span>
             </div>
-            <span className="font-display font-bold gold-text">EMAX</span>
+            <span className="font-bold text-white font-body">EMAX</span>
           </div>
           <div className="ml-auto flex items-center gap-3">
             {isAdmin && (
@@ -141,8 +141,8 @@ export default function AppLayout({ children, user, userProfile }) {
                 Admin
               </span>
             )}
-            <div className="w-8 h-8 rounded-full gold-gradient flex items-center justify-center">
-              <span className="text-xs font-bold text-black">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(147, 197, 253, 0.2)", border: "1px solid rgba(147, 197, 253, 0.3)" }}>
+              <span className="text-xs font-bold text-blue-200">
                 {(user?.full_name || user?.email || "U").charAt(0).toUpperCase()}
               </span>
             </div>

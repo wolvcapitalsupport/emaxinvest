@@ -97,7 +97,7 @@ export default function Dashboard() {
         {/* Welcome */}
         <div>
           <h1 className="text-2xl sm:text-3xl font-display font-bold mb-1">
-            Welcome back, <span className="gold-text">{user?.full_name?.split(" ")[0] || "Investor"}</span>
+            Welcome back,             <span style={{ color: "#93C5FD" }}>{user?.full_name?.split(" ")[0] || "Investor"}</span>
           </h1>
           <p className="text-muted-foreground text-sm">Here's your investment portfolio overview</p>
         </div>
@@ -155,7 +155,7 @@ export default function Dashboard() {
                       </div>
                       <div className="h-2 bg-secondary rounded-full overflow-hidden">
                         <div
-                          className="h-full gold-gradient rounded-full transition-all duration-500"
+                          className="h-full rounded-full transition-all duration-500" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)" }}
                           style={{ width: `${progress}%` }}
                         />
                       </div>
@@ -198,7 +198,7 @@ export default function Dashboard() {
             </div>
             <h3 className="font-display font-bold text-xl mb-2">No Investments Yet</h3>
             <p className="text-muted-foreground text-sm mb-6">Start growing your wealth by choosing an investment plan</p>
-            <Link to="/invest" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl gold-gradient text-black font-semibold text-sm hover:opacity-90 transition-all">
+            <Link to="/invest" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm hover:opacity-90 transition-all" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}>
               Explore Plans <ChevronRight size={16} />
             </Link>
           </div>

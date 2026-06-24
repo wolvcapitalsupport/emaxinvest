@@ -82,10 +82,10 @@ export default function Withdraw() {
           {/* Form */}
           <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
             {/* Balance */}
-            <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
+            <div className="rounded-xl p-4 flex items-center justify-between" style={{ background: "rgba(147,197,253,0.07)", border: "1px solid rgba(147,197,253,0.18)" }}>
               <div>
                 <p className="text-xs text-muted-foreground">Available Balance</p>
-                <p className="text-2xl font-display font-bold gold-text">${(userProfile?.wallet_balance || 0).toLocaleString()}</p>
+                <p className="text-2xl font-display font-bold" style={{ color: "#93C5FD" }}>${(userProfile?.wallet_balance || 0).toLocaleString()}</p>
               </div>
               <DollarSign size={28} className="text-primary/60" />
             </div>
@@ -138,7 +138,7 @@ export default function Withdraw() {
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full py-3 rounded-xl gold-gradient text-black font-semibold disabled:opacity-50 hover:opacity-90 transition-all"
+              className="w-full py-3 rounded-xl font-semibold disabled:opacity-50 hover:opacity-90 transition-all" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
             >
               {submitting ? "Submitting..." : "Submit Withdrawal Request"}
             </button>

@@ -129,8 +129,8 @@ export default function AdminUsers() {
               <div key={profile.id} className="bg-card border border-border rounded-2xl overflow-hidden">
                 <div className="p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="w-10 h-10 gold-gradient rounded-xl flex items-center justify-center flex-shrink-0">
-                      <span className="font-bold text-black">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(147,197,253,0.15)", border: "1px solid rgba(147,197,253,0.25)" }}>
+                      <span className="font-bold text-blue-200">
                         {(profile.full_name || profile.user_email || "U").charAt(0).toUpperCase()}
                       </span>
                     </div>
@@ -176,7 +176,7 @@ export default function AdminUsers() {
                         <button
                           onClick={() => updateBalance(profile)}
                           disabled={!!actionLoading}
-                          className="px-4 py-2 rounded-lg gold-gradient text-black text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+                          className="px-4 py-2 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
                         >
                           {actionLoading === profile.id + "_bal" ? "..." : "Update"}
                         </button>
@@ -192,7 +192,7 @@ export default function AdminUsers() {
                             key={s}
                             onClick={() => updateStatus(profile, s)}
                             disabled={!!actionLoading || profile.account_status === s}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize disabled:opacity-50 ${profile.account_status === s ? "gold-gradient text-black" : "bg-secondary text-muted-foreground hover:text-foreground border border-border"}`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize disabled:opacity-50 ${profile.account_status === s ? "text-slate-900" : "bg-secondary text-muted-foreground hover:text-foreground border border-border"}`} style={profile.account_status === s ? { background: "linear-gradient(135deg, #93C5FD, #BFDBFE)" } : {}}
                           >
                             {s}
                           </button>

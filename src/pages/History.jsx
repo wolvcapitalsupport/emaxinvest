@@ -61,7 +61,7 @@ export default function History() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === t ? "gold-gradient text-black" : "text-muted-foreground hover:text-foreground"}`}
+              className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === t ? "text-slate-900" : "text-muted-foreground hover:text-foreground"}`} style={tab === t ? { background: "linear-gradient(135deg, #93C5FD, #BFDBFE)" } : {}}
             >
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </button>

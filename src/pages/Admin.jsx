@@ -248,7 +248,7 @@ export default function Admin() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium border transition-all capitalize ${filter === f ? "gold-gradient text-black border-transparent" : "border-border text-muted-foreground hover:text-foreground"}`}
+              className={`px-4 py-1.5 rounded-full text-xs font-medium border transition-all capitalize ${filter === f ? "border-transparent text-slate-900" : "border-border text-muted-foreground hover:text-foreground"}`} style={filter === f ? { background: "linear-gradient(135deg, #93C5FD, #BFDBFE)" } : {}}
             >
               {f}
             </button>
@@ -312,7 +312,7 @@ export default function Admin() {
                         <button
                           onClick={() => creditROI(inv)}
                           disabled={!!actionLoading}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg gold-gradient text-black text-xs font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
                         >
                           <DollarSign size={14} />
                           {actionLoading === inv.id + "_roi" ? "..." : "Credit ROI"}
@@ -407,7 +407,7 @@ export default function Admin() {
                         <button
                           onClick={() => markPaid(w)}
                           disabled={!!actionLoading}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg gold-gradient text-black text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
                         >
                           <DollarSign size={14} />
                           {actionLoading === w.id + "_paid" ? "..." : "Mark Paid"}

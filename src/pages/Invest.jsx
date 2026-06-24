@@ -5,10 +5,10 @@ import { INVESTMENT_PLANS, calcExpectedReturn } from "@/lib/plans";
 import { CheckCircle, Upload, X } from "lucide-react";
 
 const planBorderColors = {
-  Foundation: "border-slate-700 data-[selected=true]:border-slate-400",
-  Growth: "border-blue-800 data-[selected=true]:border-blue-500",
-  Accelerator: "border-amber-800 data-[selected=true]:border-amber-500",
-  Legacy: "border-yellow-700 data-[selected=true]:border-yellow-400"
+  Foundation: "border-slate-700/50 data-[selected=true]:border-blue-400/60",
+  Growth: "border-slate-700/50 data-[selected=true]:border-blue-400/60",
+  Accelerator: "border-slate-700/50 data-[selected=true]:border-blue-400/60",
+  Legacy: "border-slate-700/50 data-[selected=true]:border-blue-400/60"
 };
 
 export default function Invest() {
@@ -100,7 +100,7 @@ export default function Invest() {
           </p>
           <button
             onClick={() => { setSuccess(false); setStep(1); setSelectedPlan(null); setForm({ payment_method: "", wallet_address: "", payment_proof: "" }); }}
-            className="px-6 py-3 rounded-xl gold-gradient text-black font-semibold text-sm"
+            className="px-6 py-3 rounded-xl font-semibold text-sm" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
           >
             Invest Again
           </button>
@@ -121,7 +121,7 @@ export default function Invest() {
         <div className="flex items-center gap-3">
           {[1, 2].map(s => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${step >= s ? "gold-gradient text-black" : "bg-secondary text-muted-foreground"}`}>
+              <div               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${step >= s ? "text-slate-900" : "bg-secondary text-muted-foreground"}`} style={step >= s ? { background: "linear-gradient(135deg, #93C5FD, #BFDBFE)" } : {}}>
                 {s}
               </div>
               <span className={`text-sm hidden sm:block ${step >= s ? "text-foreground" : "text-muted-foreground"}`}>
@@ -143,16 +143,16 @@ export default function Invest() {
                     key={plan.name}
                     data-selected={selected}
                     onClick={() => setSelectedPlan(plan.name)}
-                    className={`relative text-left rounded-2xl border-2 p-5 transition-all duration-200 hover:scale-102 ${planBorderColors[plan.name]} ${selected ? "bg-primary/10 ring-1 ring-primary/40" : "bg-card"}`}
+                    className={`relative text-left rounded-2xl border-2 p-5 transition-all duration-200 hover:scale-102 ${planBorderColors[plan.name]}`} style={selected ? { background: "rgba(147,197,253,0.08)", boxShadow: "0 0 20px rgba(147,197,253,0.1)" } : { background: "rgba(12,15,24,0.85)" }}
                   >
                     {selected && (
-                      <div className="absolute top-3 right-3 w-6 h-6 gold-gradient rounded-full flex items-center justify-center">
-                        <CheckCircle size={14} className="text-black" />
+                      <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)" }}>
+                        <CheckCircle size={14} className="text-slate-900" />
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground font-medium mb-1">{plan.badge}</p>
                     <h3 className="text-lg font-display font-bold mb-2">{plan.name}</h3>
-                    <p className="text-2xl font-display font-bold gold-text mb-3">${plan.amount.toLocaleString()}</p>
+                    <p className="text-2xl font-display font-bold mb-3" style={{ color: "#93C5FD" }}>${plan.amount.toLocaleString()}</p>
                     <div className="space-y-1.5 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Duration</span>
@@ -175,7 +175,7 @@ export default function Invest() {
               <button
                 disabled={!selectedPlan}
                 onClick={() => setStep(2)}
-                className="px-8 py-3 rounded-xl gold-gradient text-black font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:opacity-90"
+                className="px-8 py-3 rounded-xl font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:opacity-90" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
               >
                 Continue to Payment →
               </button>
@@ -189,7 +189,7 @@ export default function Invest() {
             {(() => {
               const plan = INVESTMENT_PLANS.find(p => p.name === selectedPlan);
               return (
-                <div className="bg-primary/10 border border-primary/20 rounded-2xl p-5 mb-6">
+                <div className="rounded-2xl p-5 mb-6" style={{ background: "rgba(147,197,253,0.07)", border: "1px solid rgba(147,197,253,0.18)" }}>
                   <p className="text-xs text-muted-foreground mb-1">Selected Plan</p>
                   <div className="flex items-center justify-between">
                     <div>
@@ -197,7 +197,7 @@ export default function Invest() {
                       <p className="text-sm text-muted-foreground">{plan.duration} days · {plan.roi}% ROI</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-display font-bold text-2xl gold-text">${plan.amount.toLocaleString()}</p>
+                      <p className="font-display font-bold text-2xl" style={{ color: "#93C5FD" }}>${plan.amount.toLocaleString()}</p>
                       <p className="text-xs text-green-400">Returns: ${calcExpectedReturn(plan.amount, plan.roi).toLocaleString()}</p>
                     </div>
                   </div>
@@ -263,7 +263,7 @@ export default function Invest() {
                 <button
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="flex-1 py-3 rounded-xl gold-gradient text-black font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition-all"
+                  className="flex-1 py-3 rounded-xl font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition-all" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
                 >
                   {submitting ? "Submitting..." : "Submit Investment"}
                 </button>
