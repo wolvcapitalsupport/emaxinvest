@@ -123,7 +123,7 @@ export default function AppLayout({ children, user, userProfile }) {
         {/* Top Bar */}
         <header className="h-16 border-b border-border flex items-center px-4 lg:px-6 gap-4 bg-card flex-shrink-0">
           <button
-            className="lg:hidden p-2 rounded-lg hover:bg-secondary transition-colors"
+            className="lg:hidden p-2 rounded-lg hover:bg-secondary transition-transform duration-200 active:scale-95"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}

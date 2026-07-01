@@ -75,12 +75,48 @@
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+    touch-action: pan-y;
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(147, 197, 253, 0.25) transparent;
+  }
+
   * {
     @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
+    tap-highlight-color: transparent;
+    scroll-behavior: inherit;
+    transition: background-color 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(147, 197, 253, 0.18);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
   }
 
   body {
     @apply bg-background text-foreground font-body;
+    min-height: 100vh;
+    line-height: 1.5;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
   }
 
   h1, h2, h3, h4 {
@@ -106,6 +142,7 @@
   }
   .card-glow {
     box-shadow: 0 0 40px rgba(147, 197, 253, 0.04), 0 4px 24px rgba(0,0,0,0.5);
+    transition: transform 250ms ease, box-shadow 250ms ease;
   }
   .card-glow-blue {
     box-shadow: 0 0 30px rgba(147, 197, 253, 0.08), 0 4px 20px rgba(0,0,0,0.5);
