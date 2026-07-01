@@ -23,13 +23,23 @@ export default function Withdraw() {
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
-    const u = await base44.auth.me();
-    setUser(u);
-    const profiles = await base44.entities.UserProfile.filter({ user_id: u.id });
-    setUserProfile(profiles[0] || null);
-    const ws = await base44.entities.WithdrawalRequest.filter({ user_id: u.id }, "-created_date", 20);
-    setWithdrawals(ws);
-    setLoading(false);
+    try {
+      const u = await base44.auth.me();
+      setUser(u);
+      if (!u) {
+        throw new Error('No authenticated user found');
+      }
+
+      const profiles = await base44.entities.UserProfile.filter({ user_id: u.id });
+      setUserProfile(profiles[0] || null);
+      const ws = await base44.entities.WithdrawalRequest.filter({ user_id: u.id }, "-created_date", 20);
+      setWithdrawals(ws);
+    } catch (error) {
+      console.error('Withdraw loadData error:', error);
+      setError('Unable to load withdrawal data. Please refresh.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async () => {

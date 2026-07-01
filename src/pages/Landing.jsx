@@ -44,6 +44,16 @@ export default function Landing() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const currentYear = new Date().getFullYear();
 
+  const scrollToId = (e, id) => {
+    e.preventDefault();
+    setIsMobileMenuOpen(false);
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      try { window.history.pushState(null, '', `#${id}`); } catch {};
+    }
+  };
+
   return (
     <div className="min-h-screen text-slate-100 font-sans antialiased selection:bg-emerald-500/20 selection:text-emerald-400" style={{ background: "hsl(230, 25%, 4%)" }}>
       
@@ -61,10 +71,10 @@ export default function Landing() {
 
           {/* Scrolling Links Panel Context */}
           <div className="hidden md:flex items-center gap-8 text-xs uppercase tracking-widest font-bold text-slate-400">
-            <a href="#plans" className="hover:text-blue-400 transition-colors">Investment Plans</a>
-            <a href="#calculator" className="hover:text-blue-400 transition-colors">Yield Estimator</a>
-            <a href="#benefits" className="hover:text-blue-400 transition-colors">Why EMAX</a>
-            <a href="#testimonials" className="hover:text-blue-400 transition-colors">Proof Matrix</a>
+            <a href="#plans" onClick={(e) => scrollToId(e, 'plans')} className="hover:text-blue-400 transition-colors">Investment Plans</a>
+            <a href="#calculator" onClick={(e) => scrollToId(e, 'calculator')} className="hover:text-blue-400 transition-colors">Yield Estimator</a>
+            <a href="#benefits" onClick={(e) => scrollToId(e, 'benefits')} className="hover:text-blue-400 transition-colors">Why EMAX</a>
+            <a href="#testimonials" onClick={(e) => scrollToId(e, 'testimonials')} className="hover:text-blue-400 transition-colors">Proof Matrix</a>
           </div>
           
           {/* Authenticated Links Switch Panel */}
@@ -87,10 +97,10 @@ export default function Landing() {
         {isMobileMenuOpen && (
           <div className="md:hidden border-b border-white/5 px-6 py-6 space-y-4 animate-in fade-in slide-in-from-top-4 duration-200" style={{ background: "rgba(8, 9, 14, 0.98)" }}>
             <div className="flex flex-col gap-4 text-sm font-semibold text-slate-400">
-              <a href="#plans" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-white transition">Investment Plans</a>
-              <a href="#calculator" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-white transition">Yield Estimator</a>
-              <a href="#benefits" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-white transition">Why EMAX</a>
-              <a href="#testimonials" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-white transition">Proof Matrix</a>
+              <a href="#plans" onClick={(e) => scrollToId(e, 'plans')} className="hover:text-white transition">Investment Plans</a>
+              <a href="#calculator" onClick={(e) => scrollToId(e, 'calculator')} className="hover:text-white transition">Yield Estimator</a>
+              <a href="#benefits" onClick={(e) => scrollToId(e, 'benefits')} className="hover:text-white transition">Why EMAX</a>
+              <a href="#testimonials" onClick={(e) => scrollToId(e, 'testimonials')} className="hover:text-white transition">Proof Matrix</a>
             </div>
             <div className="h-px bg-slate-900 my-4" />
             <div className="flex flex-col gap-3">
@@ -289,9 +299,9 @@ export default function Landing() {
           <div>
             <h4 className="text-xs uppercase tracking-widest font-bold text-slate-300 mb-4">Navigation</h4>
             <div className="flex flex-col gap-2.5 text-xs text-slate-400">
-              <a href="#plans" className="hover:text-white transition-colors">Tiers Packages</a>
-              <a href="#calculator" className="hover:text-white transition-colors">Simulator Engine</a>
-              <a href="#benefits" className="hover:text-white transition-colors">Core Benefits</a>
+              <a href="#plans" onClick={(e) => scrollToId(e, 'plans')} className="hover:text-white transition-colors">Tiers Packages</a>
+              <a href="#calculator" onClick={(e) => scrollToId(e, 'calculator')} className="hover:text-white transition-colors">Simulator Engine</a>
+              <a href="#benefits" onClick={(e) => scrollToId(e, 'benefits')} className="hover:text-white transition-colors">Core Benefits</a>
             </div>
           </div>
 

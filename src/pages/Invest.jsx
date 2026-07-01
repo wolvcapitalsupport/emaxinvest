@@ -16,10 +16,11 @@ export default function Invest() {
   const [userProfile, setUserProfile] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [step, setStep] = useState(1); // 1: select plan, 2: payment details
-  const [form, setForm] = useState({ payment_method: "", wallet_address: "", payment_proof: "" });
+  const [form, setForm] = useState({ payment_method: "", transaction_hash: "", payment_proof: "" });
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [paymentSettings, setPaymentSettings] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -31,6 +32,9 @@ export default function Invest() {
     setUser(u);
     const profiles = await base44.entities.UserProfile.filter({ user_id: u.id });
     setUserProfile(profiles[0] || null);
+
+    const settings = await base44.entities.PaymentSettings.list();
+    setPaymentSettings(settings[0] || null);
   };
 
   const handleFileUpload = async (e) => {
@@ -66,7 +70,7 @@ export default function Invest() {
         expected_return: expectedReturn,
         status: "pending",
         payment_method: form.payment_method,
-        wallet_address: form.wallet_address,
+        transaction_hash: form.transaction_hash,
         payment_proof: form.payment_proof
       });
       // Log transaction
@@ -99,7 +103,7 @@ export default function Invest() {
             Your investment request for the <strong className="text-primary">{selectedPlan}</strong> plan has been submitted and is pending admin approval. You'll be notified once it's approved.
           </p>
           <button
-            onClick={() => { setSuccess(false); setStep(1); setSelectedPlan(null); setForm({ payment_method: "", wallet_address: "", payment_proof: "" }); }}
+            onClick={() => { setSuccess(false); setStep(1); setSelectedPlan(null); setForm({ payment_method: "", transaction_hash: "", payment_proof: "" }); }}
             className="px-6 py-3 rounded-xl font-semibold text-sm" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
           >
             Invest Again
@@ -207,6 +211,16 @@ export default function Invest() {
 
             <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
               <h3 className="font-semibold">Payment Details</h3>
+{paymentSettings && (
+<div className="rounded-xl border border-border p-4 space-y-2 text-sm">
+<div><strong>BTC:</strong> {paymentSettings.btc_address}</div>
+<div><strong>USDT (TRC20):</strong> {paymentSettings.usdt_trc20_address}</div>
+<div><strong>ETH:</strong> {paymentSettings.eth_address}</div>
+<div><strong>Bank:</strong> {paymentSettings.bank_name}</div>
+<div><strong>Account Name:</strong> {paymentSettings.account_name}</div>
+<div><strong>Account Number:</strong> {paymentSettings.account_number}</div>
+</div>
+)}
 
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">Payment Method *</label>
@@ -218,16 +232,18 @@ export default function Invest() {
                 />
               </div>
 
-              <div>
-                <label className="text-sm text-muted-foreground block mb-2">Your Wallet / Account (optional)</label>
-                <input
-                  value={form.wallet_address}
-                  onChange={e => setForm(f => ({ ...f, wallet_address: e.target.value }))}
-                  placeholder="Your wallet address or bank account"
-                  className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
-                />
-              </div>
+<div>
+  <label className="text-sm text-muted-foreground block mb-2">
+    Transaction Hash (optional)
+  </label>
 
+  <input
+    value={form.transaction_hash}
+    onChange={e => setForm(f => ({ ...f, transaction_hash: e.target.value }))}
+    placeholder="Paste blockchain transaction hash"
+    className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
+  />
+</div>
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">Payment Proof (optional)</label>
                 {form.payment_proof ? (

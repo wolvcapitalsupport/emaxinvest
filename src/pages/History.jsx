@@ -28,15 +28,24 @@ export default function History() {
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
-    const u = await base44.auth.me();
-    setUser(u);
-    const profiles = await base44.entities.UserProfile.filter({ user_id: u.id });
-    setUserProfile(profiles[0] || null);
-    const invs = await base44.entities.Investment.filter({ user_id: u.id }, "-created_date", 50);
-    setInvestments(invs);
-    const txs = await base44.entities.Transaction.filter({ user_id: u.id }, "-created_date", 50);
-    setTransactions(txs);
-    setLoading(false);
+    try {
+      const u = await base44.auth.me();
+      setUser(u);
+      if (!u) {
+        throw new Error('No authenticated user found');
+      }
+
+      const profiles = await base44.entities.UserProfile.filter({ user_id: u.id });
+      setUserProfile(profiles[0] || null);
+      const invs = await base44.entities.Investment.filter({ user_id: u.id }, "-created_date", 50);
+      setInvestments(invs);
+      const txs = await base44.entities.Transaction.filter({ user_id: u.id }, "-created_date", 50);
+      setTransactions(txs);
+    } catch (error) {
+      console.error('History loadData error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {

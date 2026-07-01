@@ -1,16 +1,17 @@
 import React, { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Lock, Loader2, AlertTriangle } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
+import { toast } from "@/components/ui/use-toast";
 
 export default function ResetPassword() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const resetToken = searchParams.get("token");
-
+  const resetToken = searchParams.get("token") || searchParams.get("access_token");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -23,10 +24,20 @@ export default function ResetPassword() {
       setError("Passwords do not match");
       return;
     }
+
+    if (!resetToken) {
+      setError("Invalid password reset token.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await base44.auth.resetPassword({ resetToken, newPassword });
-      window.location.href = "/login";
+      await base44.auth.resetPassword(resetToken, newPassword);
+      toast({
+        title: "Password reset",
+        description: "Your password has been updated. Please log in with your new password.",
+      });
+      navigate("/login");
     } catch (err) {
       setError(err.message || "Failed to reset password");
     } finally {
@@ -42,12 +53,12 @@ export default function ResetPassword() {
         subtitle="This password reset link is missing or invalid"
         footer={
           <Link to="/forgot-password" className="text-primary font-medium hover:underline">
-            Request a new link
+            Request a new reset link
           </Link>
         }
       >
         <p className="text-sm text-foreground text-center">
-          The link you used appears to be incomplete. Please request a new password reset email.
+          The link you used appears to be incomplete or expired. Please request a new password reset email.
         </p>
       </AuthLayout>
     );
@@ -58,6 +69,11 @@ export default function ResetPassword() {
       icon={Lock}
       title="New password"
       subtitle="Enter your new password below"
+      footer={
+        <Link to="/forgot-password" className="text-primary font-medium hover:underline">
+          Request a new reset link
+        </Link>
+      }
     >
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">

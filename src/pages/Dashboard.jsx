@@ -25,6 +25,12 @@ export default function Dashboard() {
   const loadData = async () => {
     try {
       const u = await base44.auth.me();
+
+      if (!u) {
+        window.location.href = "/login";
+        return;
+      }
+
       setUser(u);
       const profiles = await base44.entities.UserProfile.filter({ user_id: u.id });
       let profile = profiles[0];
@@ -155,8 +161,7 @@ export default function Dashboard() {
                       </div>
                       <div className="h-2 bg-secondary rounded-full overflow-hidden">
                         <div
-                          className="h-full rounded-full transition-all duration-500" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)" }}
-                          style={{ width: `${progress}%` }}
+                          className="h-full rounded-full transition-all duration-500" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", width: `${progress}%` }}
                         />
                       </div>
                       {inv.maturity_date && (

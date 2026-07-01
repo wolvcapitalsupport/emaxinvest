@@ -1,0 +1,169 @@
+import { createClient } from '@supabase/supabase-js';
+import axios from 'axios';
+
+// Initialize Supabase using client environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Map Base44 methods to Supabase functions so your pages don't break
+export const base44 = {
+auth: {
+  me: async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    return session?.user || null;
+  },
+
+  loginViaEmailPassword: async (email, password) => {
+    const { data, error } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+    if (error) throw error;
+
+    return data;
+  },
+
+  register: async ({ email, password }) => {
+    return await supabase.auth.signUp({ email, password });
+  },
+
+  logout: async () => {
+    return await supabase.auth.signOut();
+  },
+
+  resetPasswordRequest: async (email) => {
+    return await supabase.auth.resetPasswordForEmail(email);
+  }
+},
+  entities: {
+    UserProfile: {
+      filter: async (match) => {
+        const { data } = await supabase.from('UserProfile').select('*').match(match);
+        return data || [];
+      },
+      list: async (order, limit) => {
+        const { data } = await supabase.from('UserProfile').select('*').limit(limit);
+        return data || [];
+      },
+      create: async (payload) => {
+        const { data } = await supabase.from('UserProfile').insert([payload]).select();
+        return data?.[0];
+      },
+      update: async (id, payload) => {
+        const { data } = await supabase.from('UserProfile').update(payload).eq('id', id).select();
+        return data?.[0];
+      }
+    },
+    Investment: {
+      filter: async (match) => {
+        const { data } = await supabase.from('Investment').select('*').match(match);
+        return data || [];
+      },
+      list: async (order, limit) => {
+        const { data } = await supabase.from('Investment').select('*').limit(limit);
+        return data || [];
+      },
+      create: async (payload) => {
+        const { data } = await supabase.from('Investment').insert([payload]).select();
+        return data?.[0];
+      },
+      update: async (id, payload) => {
+        const { data } = await supabase.from('Investment').update(payload).eq('id', id).select();
+        return data?.[0];
+      }
+    },
+    Transaction: {
+      create: async (payload) => {
+        const { data } = await supabase.from('Transaction').insert([payload]).select();
+        return data?.[0];
+      }
+    },
+      list: async (order, limit) => {
+    const { data } = await supabase.from('WithdrawalRequest').select('*').limit(limit);
+    return data || [];
+  },
+PaymentSettings: {
+  list: async () => {
+    const { data } = await supabase
+      .from('PaymentSettings')
+      .select('*');
+
+    return data || [];
+  },
+
+  update: async (id, payload) => {
+    const { data } = await supabase
+      .from('PaymentSettings')
+      .update(payload)
+      .eq('id', id)
+      .select();
+
+    return data?.[0];
+  }
+},
+  update: async (id, payload) => {
+    const { data } = await supabase.from('WithdrawalRequest').update(payload).eq('id', id).select();
+    return data?.[0];
+  }
+}
+WithdrawalRequest: {
+  list: async (order, limit) => {
+    const { data } = await supabase
+      .from('WithdrawalRequest')
+      .select('*')
+      .limit(limit);
+
+    return data || [];
+  },
+
+  update: async (id, payload) => {
+    const { data } = await supabase
+      .from('WithdrawalRequest')
+      .update(payload)
+      .eq('id', id)
+      .select();
+
+    return data?.[0];
+  }
+},
+
+PaymentSettings: {
+  list: async () => {
+    const { data } = await supabase
+      .from('PaymentSettings')
+      .select('*');
+
+    return data || [];
+  },
+
+  update: async (id, payload) => {
+    const { data } = await supabase
+      .from('PaymentSettings')
+      .update(payload)
+      .eq('id', id)
+      .select();
+
+    return data?.[0];
+  }
+},  update: async (id, payload) => {
+        const { data } = await supabase.from('WithdrawalRequest').update(payload).eq('id', id).select();
+        return data?.[0];
+      }
+    }
+  },
+  integrations: {
+    Core: {
+      UploadFile: async ({ file }) => {
+        // Simple mock upload structure for Vite framework compatibility
+        return { file_url: "https://placehold.co" };
+      }
+    }
+  }
+};
+

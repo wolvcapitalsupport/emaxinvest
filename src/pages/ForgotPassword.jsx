@@ -16,7 +16,7 @@ export default function ForgotPassword() {
     e.preventDefault();
     setLoading(true);
     try {
-      await base44.auth.resetPasswordRequest(email);
+      await base44.auth.resetPasswordRequest(email, `${window.location.origin}/reset-password`);
     } catch {
       // Always show success regardless
     } finally {
