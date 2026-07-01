@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
-import { TrendingUp, DollarSign, Clock, CheckCircle, ArrowUpRight, AlertCircle, ChevronRight } from "lucide-react";
-import { calcProgress, calcExpectedReturn, isMatured } from "@/lib/plans";
+import { TrendingUp, DollarSign, Clock, ArrowUpRight, AlertCircle, ChevronRight } from "lucide-react";
+import { calcProgress, isMatured } from "@/lib/plans";
 
 const statusColors = {
   pending: "bg-yellow-900/40 text-yellow-300 border-yellow-700/50",

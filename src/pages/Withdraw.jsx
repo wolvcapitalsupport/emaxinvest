@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
-import { DollarSign, ArrowDownCircle, CheckCircle, Clock, XCircle } from "lucide-react";
+import { DollarSign, ArrowDownCircle, CheckCircle } from "lucide-react";
 
 const statusColors = {
   pending: "bg-yellow-900/40 text-yellow-300 border-yellow-700/50",

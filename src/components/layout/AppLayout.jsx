@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
   LayoutDashboard, TrendingUp, ArrowDownCircle, History,
-  LogOut, Menu, X, Shield, Users, Settings, ChevronRight
+  LogOut, Menu, X, Shield, Users, ChevronRight
 } from "lucide-react";
 
 const navItems = [

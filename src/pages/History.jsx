@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
-import { History as HistoryIcon, TrendingUp, ArrowDownCircle, CheckCircle, Clock, XCircle } from "lucide-react";
+import { History as HistoryIcon, TrendingUp, ArrowDownCircle, CheckCircle, Clock } from "lucide-react";
 
 const statusColors = {
   pending: "text-yellow-400",

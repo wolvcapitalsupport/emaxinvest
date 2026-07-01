@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
-import { Users, Search, DollarSign, TrendingUp, ChevronDown, ChevronUp, Edit2, CheckCircle, XCircle } from "lucide-react";
+import { Users, Search, ChevronDown, ChevronUp } from "lucide-react";
 
 const statusColors = {
   active: "bg-green-900/40 text-green-300 border-green-700/50",
