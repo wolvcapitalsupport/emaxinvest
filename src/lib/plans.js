@@ -58,10 +58,133 @@ export const calcProgress = (approvedDate, maturityDate) => {
   const start = new Date(approvedDate);
   const end = new Date(maturityDate);
   const total = end - start;
+  if (!Number.isFinite(total) || total <= 0) {
+    return 0;
+  }
   const elapsed = now - start;
   return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
 };
 
 export const isMatured = (maturityDate) => {
   return new Date() >= new Date(maturityDate);
+};
+
+const toValidDate = (value) => {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+export const resolveInvestmentTimeline = (investment) => {
+  if (!investment) {
+    return { start: null, end: null };
+  }
+
+  const start = toValidDate(investment.approved_date) || toValidDate(investment.created_date);
+  let end = toValidDate(investment.maturity_date);
+
+  if (!end && start) {
+    const durationDays = Number(investment.duration_days);
+    if (Number.isFinite(durationDays) && durationDays > 0) {
+      end = new Date(start);
+      end.setDate(end.getDate() + durationDays);
+    }
+  }
+
+  return { start, end };
+};
+
+export const calcInvestmentProgress = (investment) => {
+  const { start, end } = resolveInvestmentTimeline(investment);
+  if (!start || !end) {
+    return 0;
+  }
+  return calcProgress(start.toISOString(), end.toISOString());
+};
+
+export const isInvestmentMatured = (investment) => {
+  const { end } = resolveInvestmentTimeline(investment);
+  return !!end && new Date() >= end;
+};
+
+export const calcAccruedRoi = (investment) => {
+  const { start, end } = resolveInvestmentTimeline(investment);
+  if (!investment || !start || !end) {
+    return 0;
+  }
+
+  const principal = Number(investment.amount) || 0;
+  const expectedReturn = Number(investment.expected_return) || principal;
+  const totalRoi = Math.max(0, expectedReturn - principal);
+  const progress = calcProgress(start.toISOString(), end.toISOString()) / 100;
+
+  return Math.max(0, totalRoi * progress);
+};
+
+export const calcAccruedPayout = (investment) => {
+  const principal = Number(investment?.amount) || 0;
+  return principal + calcAccruedRoi(investment);
+};
+
+// --- Real day-based ROI accrual (credited directly to wallet, not just estimated) ---
+
+export const getDailyRoiRate = (investment) => {
+  const principal = Number(investment?.amount) || 0;
+  const expectedReturn = Number(investment?.expected_return) || principal;
+  const durationDays = Number(investment?.duration_days) || 0;
+  if (durationDays <= 0) {
+    return 0;
+  }
+  return Math.max(0, expectedReturn - principal) / durationDays;
+};
+
+/**
+ * Computes how many whole ROI-days are due to be credited right now for an
+ * active investment, based on elapsed time since approval, capped at maturity
+ * and minus whatever has already been credited (investment.roi_days_credited).
+ */
+export const computeDueRoiAccrual = (investment) => {
+  if (!investment || investment.status !== "active") {
+    return null;
+  }
+
+  const { start, end } = resolveInvestmentTimeline(investment);
+  if (!start || !end) {
+    return null;
+  }
+
+  const durationDays = Number(investment.duration_days) || 0;
+  if (durationDays <= 0) {
+    return null;
+  }
+
+  const now = new Date();
+  const cappedNow = now < end ? now : end;
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const elapsedDays = Math.min(durationDays, Math.max(0, Math.floor((cappedNow - start) / msPerDay)));
+
+  const alreadyCredited = Number(investment.roi_days_credited) || 0;
+  const dueDays = Math.max(0, elapsedDays - alreadyCredited);
+  const dailyRate = getDailyRoiRate(investment);
+
+  return {
+    dueDays,
+    creditAmount: dueDays * dailyRate,
+    dailyRate,
+    elapsedDays,
+    durationDays,
+    isFullyMatured: now >= end,
+  };
+};
+
+export const calcCreditedRoi = (investment) => {
+  const days = Number(investment?.roi_days_credited) || 0;
+  return days * getDailyRoiRate(investment);
+};
+
+export const calcCreditedPayout = (investment) => {
+  const principal = Number(investment?.amount) || 0;
+  return principal + calcCreditedRoi(investment);
 };

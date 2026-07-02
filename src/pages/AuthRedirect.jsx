@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { base44, isAdminUser } from "@/api/base44Client";
 
 export default function AuthRedirect() {
   const navigate = useNavigate();
@@ -9,7 +9,7 @@ export default function AuthRedirect() {
     const redirect = async () => {
       try {
         const user = await base44.auth.me();
-        if (user?.role === "admin") {
+        if (isAdminUser(user)) {
           navigate("/admin", { replace: true });
         } else if (user) {
           navigate("/dashboard", { replace: true });

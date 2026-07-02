@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { base44, isAdminUser } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +19,7 @@ export default function Login() {
     const redirectIfLoggedIn = async () => {
       try {
         const user = await base44.auth.me();
-        if (user?.role === "admin") {
+        if (isAdminUser(user)) {
           navigate("/admin", { replace: true });
         } else if (user) {
           navigate("/dashboard", { replace: true });

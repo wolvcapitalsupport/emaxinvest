@@ -11,15 +11,156 @@ const throwIfError = (error) => {
   }
 };
 
+const ORDER_FALLBACK_COLUMNS = ['created_date', 'created_at', 'inserted_at', 'createdon'];
+
+const isMissingColumnError = (error) => {
+  const message = `${error?.message || ''}`.toLowerCase();
+  return message.includes('column') && message.includes('does not exist');
+};
+
+const runOrderedQuery = async ({ buildQuery, order, limit }) => {
+  const explicitColumn = order ? order.replace(/^-/, '') : null;
+  const ascending = !(order && order.startsWith('-'));
+  const orderedColumns = explicitColumn
+    ? [explicitColumn, ...ORDER_FALLBACK_COLUMNS.filter((col) => col !== explicitColumn)]
+    : ORDER_FALLBACK_COLUMNS;
+
+  let lastMissingColumnError = null;
+
+  for (const column of orderedColumns) {
+    let query = buildQuery();
+    query = query.order(column, { ascending });
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
+    if (!error) {
+      return data || [];
+    }
+
+    if (isMissingColumnError(error)) {
+      lastMissingColumnError = error;
+      continue;
+    }
+
+    throw error;
+  }
+
+  if (lastMissingColumnError) {
+    throw lastMissingColumnError;
+  }
+
+  let fallbackQuery = buildQuery();
+  if (limit) {
+    fallbackQuery = fallbackQuery.limit(limit);
+  }
+  const { data, error } = await fallbackQuery;
+  throwIfError(error);
+  return data || [];
+};
+
+const normalizeRole = (role) => {
+  if (!role || typeof role !== 'string') {
+    return 'user';
+  }
+  const normalized = role.toLowerCase().trim();
+  if (normalized.includes('admin')) {
+    return 'admin';
+  }
+  return normalized;
+};
+
+export const isAdminUser = (user) => {
+  if (!user) {
+    return false;
+  }
+
+  const roleCandidates = [
+    user.role,
+    user.user_role,
+    user.account_role,
+    user.app_metadata?.role,
+    user.app_metadata?.user_role,
+    user.app_metadata?.account_role,
+    user.user_metadata?.role,
+    user.user_metadata?.user_role,
+    user.user_metadata?.account_role,
+    user.raw_app_meta_data?.role,
+    user.raw_app_meta_data?.user_role,
+    user.raw_user_meta_data?.role,
+    user.raw_user_meta_data?.user_role,
+  ].filter(Boolean);
+
+  const hasAdminRole = roleCandidates.some((candidate) => normalizeRole(candidate) === 'admin');
+  if (hasAdminRole) {
+    return true;
+  }
+
+  return !!(
+    user.is_admin ||
+    user.app_metadata?.is_admin ||
+    user.user_metadata?.is_admin ||
+    user.raw_app_meta_data?.is_admin ||
+    user.raw_user_meta_data?.is_admin
+  );
+};
+
+export const normalizeAuthUser = (user) => {
+  if (!user) {
+    return null;
+  }
+
+  const resolvedRole =
+    user.role ||
+    user.user_role ||
+    user.account_role ||
+    user.app_metadata?.role ||
+    user.app_metadata?.user_role ||
+    user.app_metadata?.account_role ||
+    user.user_metadata?.role ||
+    user.user_metadata?.user_role ||
+    user.user_metadata?.account_role ||
+    user.raw_app_meta_data?.role ||
+    user.raw_app_meta_data?.user_role ||
+    user.raw_user_meta_data?.role ||
+    user.raw_user_meta_data?.user_role ||
+    (user.app_metadata?.is_admin ? 'admin' : null) ||
+    (user.user_metadata?.is_admin ? 'admin' : null);
+
+  return {
+    ...user,
+    role: normalizeRole(resolvedRole),
+  };
+};
+
 export const base44 = {
   auth: {
     me: async () => {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getUser();
       throwIfError(error);
-      return session?.user || null;
+
+      const normalizedUser = normalizeAuthUser(data?.user || null);
+      if (!normalizedUser) {
+        return null;
+      }
+
+      if (normalizedUser.role !== 'admin') {
+        const { data: profiles, error: profileError } = await supabase
+          .from('UserProfile')
+          .select('*')
+          .eq('user_id', normalizedUser.id)
+          .limit(1);
+
+        if (!profileError && profiles?.[0]?.role) {
+          return {
+            ...normalizedUser,
+            role: normalizeRole(profiles[0].role),
+          };
+        }
+      }
+
+      return normalizedUser;
     },
 
     loginViaEmailPassword: async (email, password) => {
@@ -85,11 +226,11 @@ export const base44 = {
         return data || [];
       },
       list: async (order, limit) => {
-        let query = supabase.from('UserProfile').select('*');
-        if (limit) query = query.limit(limit);
-        const { data, error } = await query;
-        throwIfError(error);
-        return data || [];
+        return runOrderedQuery({
+          buildQuery: () => supabase.from('UserProfile').select('*'),
+          order,
+          limit,
+        });
       },
       create: async (payload) => {
         const { data, error } = await supabase.from('UserProfile').insert([payload]).select();
@@ -109,11 +250,11 @@ export const base44 = {
         return data || [];
       },
       list: async (order, limit) => {
-        let query = supabase.from('Investment').select('*');
-        if (limit) query = query.limit(limit);
-        const { data, error } = await query;
-        throwIfError(error);
-        return data || [];
+        return runOrderedQuery({
+          buildQuery: () => supabase.from('Investment').select('*'),
+          order,
+          limit,
+        });
       },
       create: async (payload) => {
         const { data, error } = await supabase.from('Investment').insert([payload]).select();
@@ -128,15 +269,11 @@ export const base44 = {
     },
     Transaction: {
       filter: async (match, order, limit) => {
-        let query = supabase.from('Transaction').select('*').match(match);
-        if (order) {
-          const isDesc = order.startsWith('-');
-          query = query.order(order.replace(/^-/, ''), { ascending: !isDesc });
-        }
-        if (limit) query = query.limit(limit);
-        const { data, error } = await query;
-        throwIfError(error);
-        return data || [];
+        return runOrderedQuery({
+          buildQuery: () => supabase.from('Transaction').select('*').match(match),
+          order,
+          limit,
+        });
       },
       create: async (payload) => {
         const { data, error } = await supabase.from('Transaction').insert([payload]).select();
@@ -146,26 +283,18 @@ export const base44 = {
     },
     WithdrawalRequest: {
       filter: async (match, order, limit) => {
-        let query = supabase.from('WithdrawalRequest').select('*').match(match);
-        if (order) {
-          const isDesc = order.startsWith('-');
-          query = query.order(order.replace(/^-/, ''), { ascending: !isDesc });
-        }
-        if (limit) query = query.limit(limit);
-        const { data, error } = await query;
-        throwIfError(error);
-        return data || [];
+        return runOrderedQuery({
+          buildQuery: () => supabase.from('WithdrawalRequest').select('*').match(match),
+          order,
+          limit,
+        });
       },
       list: async (order, limit) => {
-        let query = supabase.from('WithdrawalRequest').select('*');
-        if (order) {
-          const isDesc = order.startsWith('-');
-          query = query.order(order.replace(/^-/, ''), { ascending: !isDesc });
-        }
-        if (limit) query = query.limit(limit);
-        const { data, error } = await query;
-        throwIfError(error);
-        return data || [];
+        return runOrderedQuery({
+          buildQuery: () => supabase.from('WithdrawalRequest').select('*'),
+          order,
+          limit,
+        });
       },
       update: async (id, payload) => {
         const { data, error } = await supabase.from('WithdrawalRequest').update(payload).eq('id', id).select();

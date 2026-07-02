@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
 import { TrendingUp, DollarSign, Clock, ArrowUpRight, AlertCircle, ChevronRight } from "lucide-react";
-import { calcProgress, isMatured } from "@/lib/plans";
+import { calcInvestmentProgress, isInvestmentMatured, calcCreditedRoi, calcCreditedPayout } from "@/lib/plans";
+import { accrueActiveInvestments } from "@/lib/roiAccrual";
 
 const statusColors = {
   pending: "bg-yellow-900/40 text-yellow-300 border-yellow-700/50",
@@ -46,7 +47,20 @@ export default function Dashboard() {
       }
       setUserProfile(profile);
       const invs = await base44.entities.Investment.filter({ user_id: u.id }, "-created_date", 10);
-      setInvestments(invs);
+
+      // Credit any ROI-days that have come due since the last visit, so the
+      // wallet balance reflects real daily growth instead of waiting for maturity.
+      const activeInvs = invs.filter(i => i.status === "active");
+      if (activeInvs.length > 0) {
+        const accrued = await accrueActiveInvestments(activeInvs);
+        const merged = invs.map(i => accrued.find(a => a.id === i.id) || i);
+        setInvestments(merged);
+
+        const refreshedProfiles = await base44.entities.UserProfile.filter({ user_id: u.id });
+        setUserProfile(refreshedProfiles[0] || profile);
+      } else {
+        setInvestments(invs);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -65,6 +79,17 @@ export default function Dashboard() {
   const activeInvestments = investments.filter(i => i.status === "active");
   const pendingInvestments = investments.filter(i => i.status === "pending");
   const completedInvestments = investments.filter(i => i.status === "completed");
+  const activeSnapshots = activeInvestments.map((inv) => {
+    const progress = calcInvestmentProgress(inv);
+    return {
+      ...inv,
+      progress,
+      accruedRoi: calcCreditedRoi(inv),
+      accruedPayout: calcCreditedPayout(inv),
+    };
+  });
+  const totalCreditedRoi = activeSnapshots.reduce((sum, inv) => sum + inv.accruedRoi, 0);
+  const estimatedMaturityPayout = activeSnapshots.reduce((sum, inv) => sum + (inv.expected_return || 0), 0);
 
   const stats = [
     {
@@ -89,10 +114,10 @@ export default function Dashboard() {
       color: "text-green-400"
     },
     {
-      label: "Pending Approval",
-      value: pendingInvestments.length.toString(),
+      label: "ROI Credited to Date",
+      value: `$${totalCreditedRoi.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
       icon: Clock,
-      sub: "Awaiting admin review",
+      sub: `${activeSnapshots.length} active plan(s) growing daily`,
       color: "text-yellow-400"
     }
   ];
@@ -107,6 +132,46 @@ export default function Dashboard() {
           </h1>
           <p className="text-muted-foreground text-sm">Here's your investment portfolio overview</p>
         </div>
+
+        {activeSnapshots.length > 0 && (
+          <div className="bg-card border border-border rounded-2xl p-5 card-glow">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-display font-semibold">Growth Progress Snapshot</h2>
+                <p className="text-xs text-muted-foreground">Real ROI credited daily to your wallet balance</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Projected at Maturity</p>
+                <p className="text-base font-semibold text-blue-300">${estimatedMaturityPayout.toLocaleString()}</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {activeSnapshots.map((inv) => (
+                <div key={`${inv.id}_progress`} className="rounded-xl bg-secondary/40 border border-border px-4 py-3">
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <p className="text-sm font-medium">{inv.plan}</p>
+                    <p className="text-xs text-muted-foreground">{inv.progress}% elapsed</p>
+                  </div>
+                  <div className="h-2 rounded-full bg-secondary overflow-hidden mb-2">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${inv.progress}%`,
+                        background: "linear-gradient(135deg, #93C5FD, #BFDBFE)",
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Credited so far</span>
+                    <span className="text-green-400 font-semibold">
+                      ${inv.accruedRoi.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -129,11 +194,9 @@ export default function Dashboard() {
           <div>
             <h2 className="text-lg font-display font-semibold mb-4">Active Investments</h2>
             <div className="space-y-4">
-              {activeInvestments.map(inv => {
-                const progress = inv.approved_date && inv.maturity_date
-                  ? calcProgress(inv.approved_date, inv.maturity_date)
-                  : 0;
-                const matured = inv.maturity_date ? isMatured(inv.maturity_date) : false;
+              {activeSnapshots.map(inv => {
+                const progress = inv.progress;
+                const matured = isInvestmentMatured(inv);
                 return (
                   <div key={inv.id} className="bg-card border border-border rounded-2xl p-5 card-glow">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
@@ -152,6 +215,9 @@ export default function Dashboard() {
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">Expected Return</p>
                         <p className="font-bold text-green-400">${(inv.expected_return || 0).toLocaleString()}</p>
+                        <p className="text-xs text-blue-300 mt-1">
+                          ROI Credited: ${inv.accruedRoi.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </p>
                       </div>
                     </div>
                     <div>
@@ -165,9 +231,14 @@ export default function Dashboard() {
                         />
                       </div>
                       {inv.maturity_date && (
-                        <p className="text-xs text-muted-foreground mt-1.5">
-                          Matures: {new Date(inv.maturity_date).toLocaleDateString()}
-                        </p>
+                        <div className="flex items-center justify-between gap-3 mt-1.5">
+                          <p className="text-xs text-muted-foreground">
+                            Matures: {new Date(inv.maturity_date).toLocaleDateString()}
+                          </p>
+                          <p className="text-xs text-blue-300">
+                            Wallet value now: ${inv.accruedPayout.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>

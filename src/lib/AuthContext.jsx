@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
-import { supabase } from "@/api/base44Client";
+import { supabase, base44 } from "@/api/base44Client";
 
 const AuthContext = createContext();
 
@@ -15,12 +15,7 @@ export const AuthProvider = ({ children }) => {
     setAuthError(null);
 
     try {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) {
-        throw error;
-      }
-
-      const u = data?.user || null;
+      const u = await base44.auth.me();
       setUser(u);
       setIsAuthenticated(!!u);
     } catch (error) {
@@ -37,11 +32,17 @@ export const AuthProvider = ({ children }) => {
     loadUser();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      const u = session?.user || null;
-      setUser(u);
-      setIsAuthenticated(!!u);
-      setAuthError(null);
-      setAuthChecked(true);
+      if (!session?.user) {
+        setUser(null);
+        setIsAuthenticated(false);
+        setAuthError(null);
+        setAuthChecked(true);
+        return;
+      }
+
+      // Re-resolve via base44.auth.me() so the UserProfile.role fallback
+      // (used for admins without auth metadata) is not skipped.
+      loadUser();
     });
 
     return () => listener.subscription.unsubscribe();

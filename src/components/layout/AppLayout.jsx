@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { base44, isAdminUser } from "@/api/base44Client";
 import {
   LayoutDashboard, TrendingUp, ArrowDownCircle, History,
   LogOut, Menu, X, Shield, Users, ChevronRight
@@ -22,7 +22,7 @@ export default function AppLayout({ children, user, userProfile }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = isAdminUser(user);
 
   const handleLogout = async () => {
     await base44.auth.logout("/");

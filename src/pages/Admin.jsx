@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
-import { calcMaturityDate } from "@/lib/plans";
+import { calcMaturityDate, calcInvestmentProgress, computeDueRoiAccrual } from "@/lib/plans";
+import { accrueInvestmentRoi, accrueActiveInvestments } from "@/lib/roiAccrual";
 import {
   CheckCircle, XCircle, Clock, DollarSign, TrendingUp,
   Users, AlertCircle, ChevronDown, ChevronUp, Eye
@@ -25,19 +26,33 @@ export default function Admin() {
   const [actionLoading, setActionLoading] = useState(null);
   const [expanded, setExpanded] = useState(null);
   const [noteMap, setNoteMap] = useState({});
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
-    const u = await base44.auth.me();
-    setUser(u);
-    const profiles = await base44.entities.UserProfile.filter({ user_id: u.id });
-    setUserProfile(profiles[0] || null);
-    const invs = await base44.entities.Investment.list("-created_date", 100);
-    setInvestments(invs);
-    const ws = await base44.entities.WithdrawalRequest.list("-created_date", 100);
-    setWithdrawals(ws);
-    setLoading(false);
+    setLoading(true);
+    try {
+      const u = await base44.auth.me();
+      if (!u) {
+        throw new Error("You are not authenticated. Please sign in again.");
+      }
+
+      setUser(u);
+      const profiles = await base44.entities.UserProfile.filter({ user_id: u.id });
+      setUserProfile(profiles[0] || null);
+      const invs = await base44.entities.Investment.list("-created_date", 100);
+      setInvestments(invs || []);
+      const ws = await base44.entities.WithdrawalRequest.list("-created_date", 100);
+      setWithdrawals(ws || []);
+      setActionError("");
+    } catch (error) {
+      setActionError(error.message || "Unable to load admin data right now.");
+      setInvestments([]);
+      setWithdrawals([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const approveInvestment = async (inv) => {
@@ -90,30 +105,28 @@ export default function Admin() {
   const creditROI = async (inv) => {
     setActionLoading(inv.id + "_roi");
     try {
-      const profiles = await base44.entities.UserProfile.filter({ user_id: inv.user_id });
-      if (profiles[0]) {
-        const roiAmount = (inv.expected_return || 0) - inv.amount;
-        await base44.entities.UserProfile.update(profiles[0].id, {
-          wallet_balance: (profiles[0].wallet_balance || 0) + (inv.expected_return || 0),
-          total_roi_earned: (profiles[0].total_roi_earned || 0) + roiAmount
-        });
+      const { credited } = await accrueInvestmentRoi(inv);
+      if (credited <= 0) {
+        throw new Error("No new ROI is due for this investment yet.");
       }
-      await base44.entities.Investment.update(inv.id, {
-        status: "completed",
-        roi_credited: true,
-        roi_credited_date: new Date().toISOString(),
-        admin_note: noteMap[inv.id] || "ROI credited"
-      });
-      await base44.entities.Transaction.create({
-        user_id: inv.user_id,
-        user_email: inv.user_email,
-        investment_id: inv.id,
-        type: "roi_credit",
-        amount: inv.expected_return || 0,
-        description: `${inv.plan} plan ROI credited — ${inv.roi_percentage}% return`,
-        status: "completed"
-      });
       await loadData();
+      setActionError("");
+    } catch (error) {
+      setActionError(error.message || "Unable to credit ROI at this time.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const runDailyAccrualForAll = async () => {
+    setActionLoading("global_accrual");
+    try {
+      const activeList = investments.filter(i => i.status === "active");
+      await accrueActiveInvestments(activeList);
+      await loadData();
+      setActionError("");
+    } catch (error) {
+      setActionError(error.message || "Unable to run daily accrual right now.");
     } finally {
       setActionLoading(null);
     }
@@ -196,9 +209,20 @@ export default function Admin() {
   return (
     <AppLayout user={user} userProfile={userProfile}>
       <div className="max-w-6xl mx-auto space-y-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-display font-bold mb-1">Admin Panel</h1>
-          <p className="text-muted-foreground text-sm">Manage investments, withdrawals, and ROI credits</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-display font-bold mb-1">Admin Panel</h1>
+            <p className="text-muted-foreground text-sm">Manage investments, withdrawals, and daily ROI credits</p>
+          </div>
+          <button
+            onClick={runDailyAccrualForAll}
+            disabled={!!actionLoading || activeInvs === 0}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold hover:opacity-90 transition-all disabled:opacity-50 flex-shrink-0" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
+            title="Credit any ROI-days that have come due across all active investments"
+          >
+            <DollarSign size={14} />
+            {actionLoading === "global_accrual" ? "Running..." : "Run Daily Accrual (All Active)"}
+          </button>
         </div>
 
         {/* Admin Stats */}
@@ -226,6 +250,13 @@ export default function Admin() {
             <p className="text-sm text-yellow-300">
               {pendingInvs} investment(s) and {pendingWithdrawals} withdrawal(s) awaiting your review.
             </p>
+          </div>
+        )}
+
+        {actionError && (
+          <div className="flex items-center gap-2 p-4 bg-red-900/10 border border-red-800/30 rounded-xl">
+            <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
+            <p className="text-sm text-red-300">{actionError}</p>
           </div>
         )}
 
@@ -264,6 +295,23 @@ export default function Admin() {
               </div>
             ) : filteredInvestments.map(inv => (
               <div key={inv.id} className="bg-card border border-border rounded-2xl overflow-hidden">
+                {inv.status === "active" && (
+                  <div className="px-5 pt-4">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+                      <span>Investment Progress</span>
+                      <span>{calcInvestmentProgress(inv)}%</span>
+                    </div>
+                    <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          background: "linear-gradient(135deg, #93C5FD, #BFDBFE)",
+                          width: `${calcInvestmentProgress(inv)}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <div className="flex-1">
@@ -308,16 +356,25 @@ export default function Admin() {
                           </button>
                         </>
                       )}
-                      {inv.status === "active" && !inv.roi_credited && (
-                        <button
-                          onClick={() => creditROI(inv)}
-                          disabled={!!actionLoading}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
-                        >
-                          <DollarSign size={14} />
-                          {actionLoading === inv.id + "_roi" ? "..." : "Credit ROI"}
-                        </button>
-                      )}
+                      {inv.status === "active" && !inv.roi_credited && (() => {
+                        const due = computeDueRoiAccrual(inv);
+                        const hasDue = !!due && due.dueDays > 0;
+                        return (
+                          <button
+                            onClick={() => creditROI(inv)}
+                            disabled={!!actionLoading || !hasDue}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
+                            title={hasDue ? `Credit ${due.dueDays} day(s) — $${due.creditAmount.toFixed(2)}` : "No new ROI due yet"}
+                          >
+                            <DollarSign size={14} />
+                            {actionLoading === inv.id + "_roi"
+                              ? "..."
+                              : hasDue
+                                ? `Credit $${due.creditAmount.toFixed(2)}`
+                                : "Up to date"}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
