@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { base44, isAdminUser } from "@/api/base44Client";
 import {
   LayoutDashboard, TrendingUp, ArrowDownCircle, History,
-  LogOut, Menu, X, Shield, Users, ChevronRight
+  LogOut, Menu, X, Shield, Users, ChevronRight, ScrollText
 } from "lucide-react";
 
 const navItems = [
@@ -86,7 +86,15 @@ export default function AppLayout({ children, user, userProfile }) {
       </nav>
 
       {/* Logout */}
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border space-y-1">
+        <Link
+          to="/terms"
+          onClick={() => setSidebarOpen(false)}
+          className="flex items-center gap-3 px-4 py-2.5 rounded-xl w-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-all duration-200"
+        >
+          <ScrollText size={16} />
+          <span className="font-medium text-xs">Terms &amp; Investment Policy</span>
+        </Link>
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-4 py-3 rounded-xl w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200"

@@ -228,14 +228,19 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ==================== CORE FUNCTIONAL MIDDLEWARE SEGMENTS ==================== */}
-      <section id="calculator" className="py-12 max-w-7xl mx-auto px-4 sm:px-6">
+      {/* ==================== CORE FUNCTIONAL MIDDLEWARE SEGMENTS ====================
+          NOTE: EmaxCalculator and EmaxLiveTx are self-contained <section> elements —
+          each already sets its own vertical padding (py-24) and full-bleed background.
+          Previously these were wrapped in extra `<section className="py-12 ...">`
+          wrappers here, which stacked an additional 48px of padding on top of their
+          own 96px, producing the large empty gaps between blocks. They're rendered
+          directly now, with no extra wrapper, so each section controls its own
+          spacing and can span full width. */}
+      <div id="calculator">
         <EmaxCalculator />
-      </section>
+      </div>
 
-      <section className="py-12 max-w-7xl mx-auto px-4 sm:px-6">
-        <EmaxLiveTx />
-      </section>
+      <EmaxLiveTx />
 
       {/* Why Choose EMAX Grid Section */}
       <section id="benefits" className="py-24 max-w-7xl mx-auto px-4 sm:px-6">
@@ -327,9 +332,9 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
           <p>© {currentYear} EMAXINVEST. All structural protocols reserved globally.</p>
           <div className="flex gap-4">
-            <span className="hover:text-slate-400 cursor-pointer transition-colors">Risk Parameters</span>
+            <Link to="/terms" className="hover:text-slate-400 transition-colors">Risk Parameters</Link>
             <span>·</span>
-            <span className="hover:text-slate-400 cursor-pointer transition-colors">User Covenant Terms</span>
+            <Link to="/terms" className="hover:text-slate-400 transition-colors">Terms &amp; Investment Policy</Link>
           </div>
         </div>
       </footer>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
 import { DollarSign, ArrowDownCircle, CheckCircle } from "lucide-react";
+import { WITHDRAWAL_RULES } from "@/lib/platformRules";
 
 const statusColors = {
   pending: "bg-yellow-900/40 text-yellow-300 border-yellow-700/50",
@@ -46,6 +47,8 @@ export default function Withdraw() {
     setError("");
     const amt = parseFloat(form.amount);
     if (!amt || amt <= 0) { setError("Please enter a valid amount."); return; }
+    if (amt < WITHDRAWAL_RULES.minAmount) { setError(`Minimum withdrawal amount is $${WITHDRAWAL_RULES.minAmount.toLocaleString()}.`); return; }
+    if (amt > WITHDRAWAL_RULES.maxAmount) { setError(`Maximum withdrawal amount per request is $${WITHDRAWAL_RULES.maxAmount.toLocaleString()}.`); return; }
     if (!form.wallet_address.trim()) { setError("Please enter your wallet/account address."); return; }
     if (!form.wallet_type.trim()) { setError("Please specify the wallet type."); return; }
     const balance = userProfile?.wallet_balance || 0;
@@ -114,9 +117,13 @@ export default function Withdraw() {
                 value={form.amount}
                 onChange={e => { setSuccess(false); setForm(f => ({ ...f, amount: e.target.value })); }}
                 placeholder="Enter amount"
-                min="1"
+                min={WITHDRAWAL_RULES.minAmount}
+                max={WITHDRAWAL_RULES.maxAmount}
                 className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
               />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Min ${WITHDRAWAL_RULES.minAmount.toLocaleString()} · Max ${WITHDRAWAL_RULES.maxAmount.toLocaleString()} per request
+              </p>
             </div>
 
             <div>

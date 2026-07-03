@@ -78,6 +78,50 @@ function computeDueRoiAccrual(investment: Record<string, any>) {
   };
 }
 
+async function rolloverInvestment(completedInvestment: Record<string, any>) {
+  const now = new Date().toISOString();
+  const maturityDate = new Date(now);
+  maturityDate.setDate(maturityDate.getDate() + Number(completedInvestment.duration_days));
+
+  const { data: created } = await supabase
+    .from("Investment")
+    .insert([
+      {
+        user_id: completedInvestment.user_id,
+        user_email: completedInvestment.user_email,
+        user_name: completedInvestment.user_name,
+        plan: completedInvestment.plan,
+        amount: completedInvestment.amount,
+        roi_percentage: completedInvestment.roi_percentage,
+        duration_days: completedInvestment.duration_days,
+        expected_return: completedInvestment.expected_return,
+        status: "active",
+        approved_date: now,
+        maturity_date: maturityDate.toISOString(),
+        roi_days_credited: 0,
+        payment_method: completedInvestment.payment_method,
+        admin_note: `Auto-renewed from investment ${completedInvestment.id} (principal rolled over, not withdrawn).`,
+      },
+    ])
+    .select();
+
+  const newInvestment = created?.[0];
+
+  await supabase.from("Transaction").insert([
+    {
+      user_id: completedInvestment.user_id,
+      user_email: completedInvestment.user_email,
+      investment_id: newInvestment?.id || completedInvestment.id,
+      type: "rollover",
+      amount: completedInvestment.amount,
+      description: `${completedInvestment.plan} plan matured — $${Number(completedInvestment.amount).toLocaleString()} principal automatically renewed into a new ${completedInvestment.duration_days}-day cycle`,
+      status: "completed",
+    },
+  ]);
+
+  return newInvestment;
+}
+
 async function accrueInvestment(investment: Record<string, any>) {
   const due = computeDueRoiAccrual(investment);
   if (!due || due.dueDays <= 0) {
@@ -104,12 +148,22 @@ async function accrueInvestment(investment: Record<string, any>) {
   const updatedRoiDaysCredited = (Number(investment.roi_days_credited) || 0) + due.dueDays;
   const isComplete = due.isFullyMatured && updatedRoiDaysCredited >= due.durationDays;
 
+  // Foundation is a one-time onboarding cycle — it never auto-rolls over and
+  // never auto-releases; the investor is prompted client-side to choose
+  // their next plan. Any other plan rolls over automatically unless the
+  // investor opted out, in which case it awaits admin-approved release.
+  const isFoundation = investment.plan === "Foundation";
+  const optedOut = !!investment.rollover_opt_out;
+  const awaitingRelease = isComplete && !isFoundation && optedOut;
+
   await supabase
     .from("Investment")
     .update({
       roi_days_credited: updatedRoiDaysCredited,
       roi_credited_date: new Date().toISOString(),
-      ...(isComplete ? { status: "completed", roi_credited: true } : {}),
+      ...(isComplete
+        ? { status: awaitingRelease ? "matured_awaiting_release" : "completed", roi_credited: true }
+        : {}),
     })
     .eq("id", investment.id);
 
@@ -125,7 +179,26 @@ async function accrueInvestment(investment: Record<string, any>) {
     },
   ]);
 
-  return { id: investment.id, credited: due.creditAmount, dueDays: due.dueDays, completed: isComplete };
+  let rolledOver = null;
+  if (isComplete && !isFoundation && !optedOut) {
+    rolledOver = await rolloverInvestment(investment);
+  }
+
+  if (awaitingRelease) {
+    await supabase.from("Transaction").insert([
+      {
+        user_id: investment.user_id,
+        user_email: investment.user_email,
+        investment_id: investment.id,
+        type: "adjustment",
+        amount: 0,
+        description: `${investment.plan} plan matured — principal release requested, pending admin approval`,
+        status: "pending",
+      },
+    ]);
+  }
+
+  return { id: investment.id, credited: due.creditAmount, dueDays: due.dueDays, completed: isComplete, rolledOverTo: rolledOver?.id ?? null };
 }
 
 Deno.serve(async () => {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
-import { History as HistoryIcon, TrendingUp, ArrowDownCircle, CheckCircle, Clock } from "lucide-react";
+import { History as HistoryIcon, TrendingUp, ArrowDownCircle, CheckCircle, Clock, RefreshCw, Unlock } from "lucide-react";
 
 const statusColors = {
   pending: "text-yellow-400",
@@ -135,11 +135,15 @@ export default function History() {
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
                     tx.type === "deposit" ? "bg-blue-900/40" :
                     tx.type === "roi_credit" ? "bg-green-900/40" :
-                    tx.type === "withdrawal" ? "bg-orange-900/40" : "bg-secondary"
+                    tx.type === "withdrawal" ? "bg-orange-900/40" :
+                    tx.type === "rollover" ? "bg-purple-900/40" :
+                    tx.type === "principal_release" ? "bg-purple-900/40" : "bg-secondary"
                   }`}>
                     {tx.type === "deposit" && <TrendingUp size={16} className="text-blue-400" />}
                     {tx.type === "roi_credit" && <CheckCircle size={16} className="text-green-400" />}
                     {tx.type === "withdrawal" && <ArrowDownCircle size={16} className="text-orange-400" />}
+                    {tx.type === "rollover" && <RefreshCw size={16} className="text-purple-400" />}
+                    {tx.type === "principal_release" && <Unlock size={16} className="text-purple-300" />}
                     {tx.type === "adjustment" && <Clock size={16} className="text-muted-foreground" />}
                   </div>
                   <div>

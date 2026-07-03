@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Invest from './pages/Invest.jsx';
 import Withdraw from './pages/Withdraw.jsx';
 import History from './pages/History.jsx';
+import Terms from './pages/Terms.jsx';
 import AuthRedirect from './pages/AuthRedirect.jsx';
 import Admin from './pages/Admin.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
@@ -25,6 +26,7 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/auth-redirect" element={<AuthRedirect />} />
+      <Route path="/terms" element={<Terms />} />
 
       {/* Protected routes - require authentication */}
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}> 

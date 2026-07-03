@@ -2,17 +2,18 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
 import { calcMaturityDate, calcInvestmentProgress, computeDueRoiAccrual } from "@/lib/plans";
-import { accrueInvestmentRoi, accrueActiveInvestments } from "@/lib/roiAccrual";
+import { accrueInvestmentRoi, accrueActiveInvestments, approvePrincipalRelease, rejectPrincipalRelease } from "@/lib/roiAccrual";
 import {
   CheckCircle, XCircle, Clock, DollarSign, TrendingUp,
-  Users, AlertCircle, ChevronDown, ChevronUp, Eye
+  Users, AlertCircle, ChevronDown, ChevronUp, Eye, Unlock
 } from "lucide-react";
 
 const statusColors = {
   pending: "bg-yellow-900/40 text-yellow-300 border-yellow-700/50",
   active: "bg-blue-900/40 text-blue-300 border-blue-700/50",
   completed: "bg-green-900/40 text-green-300 border-green-700/50",
-  rejected: "bg-red-900/40 text-red-300 border-red-700/50"
+  rejected: "bg-red-900/40 text-red-300 border-red-700/50",
+  matured_awaiting_release: "bg-purple-900/40 text-purple-300 border-purple-700/50"
 };
 
 export default function Admin() {
@@ -132,6 +133,32 @@ export default function Admin() {
     }
   };
 
+  const approveRelease = async (inv) => {
+    setActionLoading(inv.id + "_release_approve");
+    try {
+      await approvePrincipalRelease(inv, noteMap[inv.id] || "Principal release approved by admin");
+      await loadData();
+      setActionError("");
+    } catch (error) {
+      setActionError(error.message || "Unable to approve principal release.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const rejectRelease = async (inv) => {
+    setActionLoading(inv.id + "_release_reject");
+    try {
+      await rejectPrincipalRelease(inv, noteMap[inv.id] || "Principal release rejected — rolled over into a new cycle instead");
+      await loadData();
+      setActionError("");
+    } catch (error) {
+      setActionError(error.message || "Unable to reject principal release.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const approveWithdrawal = async (w) => {
     setActionLoading(w.id + "_wapprove");
     try {
@@ -201,6 +228,7 @@ export default function Admin() {
   const totalUsers = [...new Set(investments.map(i => i.user_id))].length;
   const pendingInvs = investments.filter(i => i.status === "pending").length;
   const activeInvs = investments.filter(i => i.status === "active").length;
+  const pendingReleases = investments.filter(i => i.status === "matured_awaiting_release").length;
   const pendingWithdrawals = withdrawals.filter(w => w.status === "pending").length;
 
   const filteredInvestments = filter === "all" ? investments : investments.filter(i => i.status === filter);
@@ -230,6 +258,7 @@ export default function Admin() {
           {[
             { label: "Pending Investments", value: pendingInvs, icon: Clock, color: "text-yellow-400" },
             { label: "Active Investments", value: activeInvs, icon: TrendingUp, color: "text-blue-400" },
+            { label: "Pending Releases", value: pendingReleases, icon: Unlock, color: "text-purple-400" },
             { label: "Pending Withdrawals", value: pendingWithdrawals, icon: DollarSign, color: "text-orange-400" },
             { label: "Total Investors", value: totalUsers, icon: Users, color: "text-green-400" }
           ].map(s => (
@@ -244,11 +273,11 @@ export default function Admin() {
         </div>
 
         {/* Alert for pending actions */}
-        {(pendingInvs > 0 || pendingWithdrawals > 0) && (
+        {(pendingInvs > 0 || pendingWithdrawals > 0 || pendingReleases > 0) && (
           <div className="flex items-center gap-2 p-4 bg-yellow-900/10 border border-yellow-800/30 rounded-xl">
             <AlertCircle size={16} className="text-yellow-400 flex-shrink-0" />
             <p className="text-sm text-yellow-300">
-              {pendingInvs} investment(s) and {pendingWithdrawals} withdrawal(s) awaiting your review.
+              {pendingInvs} investment(s), {pendingReleases} principal release(s), and {pendingWithdrawals} withdrawal(s) awaiting your review.
             </p>
           </div>
         )}
@@ -275,7 +304,7 @@ export default function Admin() {
 
         {/* Filter */}
         <div className="flex gap-2 flex-wrap">
-          {(tab === "investments" ? ["pending", "active", "completed", "rejected", "all"] : ["pending", "approved", "paid", "rejected", "all"]).map(f => (
+          {(tab === "investments" ? ["pending", "active", "matured_awaiting_release", "completed", "rejected", "all"] : ["pending", "approved", "paid", "rejected", "all"]).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -375,6 +404,28 @@ export default function Admin() {
                           </button>
                         );
                       })()}
+                      {inv.status === "matured_awaiting_release" && (
+                        <>
+                          <button
+                            onClick={() => approveRelease(inv)}
+                            disabled={!!actionLoading}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-900/30 text-purple-300 border border-purple-700/40 text-xs font-medium hover:bg-purple-900/50 transition-colors disabled:opacity-50"
+                            title={`Release $${Number(inv.amount).toLocaleString()} principal to wallet`}
+                          >
+                            <Unlock size={14} />
+                            {actionLoading === inv.id + "_release_approve" ? "..." : `Release $${Number(inv.amount).toLocaleString()}`}
+                          </button>
+                          <button
+                            onClick={() => rejectRelease(inv)}
+                            disabled={!!actionLoading}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-900/30 text-red-400 border border-red-700/40 text-xs font-medium hover:bg-red-900/50 transition-colors disabled:opacity-50"
+                            title="Reject release — roll principal into a new cycle instead"
+                          >
+                            <XCircle size={14} />
+                            {actionLoading === inv.id + "_release_reject" ? "..." : "Reject & Rollover"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
