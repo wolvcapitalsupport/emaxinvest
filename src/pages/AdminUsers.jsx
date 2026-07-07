@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
 import { Users, Search, ChevronDown, ChevronUp } from "lucide-react";
+import { INVESTMENT_PLANS, calcMaturityDate, calcExpectedReturn } from "@/lib/plans";
 
 const statusColors = {
   active: "bg-green-900/40 text-green-300 border-green-700/50",
@@ -18,7 +19,9 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [editBalance, setEditBalance] = useState({});
+  const [selectedPlan, setSelectedPlan] = useState({});
   const [actionLoading, setActionLoading] = useState(null);
+  const [assignError, setAssignError] = useState({});
 
   useEffect(() => { loadData(); }, []);
 
@@ -60,6 +63,66 @@ export default function AdminUsers() {
     try {
       await base44.entities.UserProfile.update(profile.id, { account_status: status });
       await loadData();
+    } catch (error) {
+      setAssignError(e => ({ ...e, [profile.id]: error.message || "Unable to update account status." }));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const assignPlan = async (profile) => {
+    const planName = selectedPlan[profile.id];
+    const plan = INVESTMENT_PLANS.find(p => p.name === planName);
+    setAssignError(e => ({ ...e, [profile.id]: "" }));
+    if (!plan) {
+      setAssignError(e => ({ ...e, [profile.id]: "Select a plan first." }));
+      return;
+    }
+    const balance = profile.wallet_balance || 0;
+    if (plan.amount > balance) {
+      setAssignError(e => ({ ...e, [profile.id]: `Insufficient balance. Available: $${balance.toLocaleString()}, plan requires $${plan.amount.toLocaleString()}.` }));
+      return;
+    }
+    setActionLoading(profile.id + "_assign");
+    try {
+      const now = new Date().toISOString();
+      const maturityDate = calcMaturityDate(now, plan.duration);
+      const expectedReturn = calcExpectedReturn(plan.amount, plan.roi);
+
+      await base44.entities.Investment.create({
+        user_id: profile.user_id,
+        user_email: profile.user_email,
+        plan: plan.name,
+        amount: plan.amount,
+        duration_days: plan.duration,
+        roi_percentage: plan.roi,
+        expected_return: expectedReturn,
+        status: "active",
+        approved_date: now,
+        maturity_date: maturityDate,
+        payment_method: "Admin assigned",
+        admin_note: "Plan assigned directly by admin"
+      });
+
+      const newBalance = balance - plan.amount;
+      await base44.entities.UserProfile.update(profile.id, {
+        wallet_balance: newBalance,
+        total_invested: (profile.total_invested || 0) + plan.amount
+      });
+
+      await base44.entities.Transaction.create({
+        user_id: profile.user_id,
+        user_email: profile.user_email,
+        type: "deposit",
+        amount: plan.amount,
+        description: `${plan.name} plan assigned by admin — matures ${new Date(maturityDate).toLocaleDateString()}`,
+        status: "completed"
+      });
+
+      await loadData();
+      setSelectedPlan(s => ({ ...s, [profile.id]: "" }));
+    } catch (error) {
+      setAssignError(e => ({ ...e, [profile.id]: error.message || "Unable to assign plan." }));
     } finally {
       setActionLoading(null);
     }
@@ -181,6 +244,38 @@ export default function AdminUsers() {
                           {actionLoading === profile.id + "_bal" ? "..." : "Update"}
                         </button>
                       </div>
+                    </div>
+
+                    {/* Assign Plan */}
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium mb-2">Assign Investment Plan</p>
+                      <div className="flex gap-2">
+                        <select
+                          value={selectedPlan[profile.id] || ""}
+                          onChange={e => setSelectedPlan(s => ({ ...s, [profile.id]: e.target.value }))}
+                          className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                        >
+                          <option value="">Select a plan...</option>
+                          {INVESTMENT_PLANS.map(p => (
+                            <option key={p.name} value={p.name}>
+                              {p.name} — ${p.amount.toLocaleString()} · {p.duration}d · {p.roi}% ROI
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => assignPlan(profile)}
+                          disabled={!!actionLoading}
+                          className="px-4 py-2 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
+                        >
+                          {actionLoading === profile.id + "_assign" ? "..." : "Assign"}
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        Deducts the plan amount from wallet balance and activates immediately — no approval step.
+                      </p>
+                      {assignError[profile.id] && (
+                        <p className="text-xs text-destructive mt-1.5">{assignError[profile.id]}</p>
+                      )}
                     </div>
 
                     {/* Account Status */}
