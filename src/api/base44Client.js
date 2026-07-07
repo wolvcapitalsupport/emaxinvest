@@ -296,6 +296,11 @@ export const base44 = {
           limit,
         });
       },
+      create: async (payload) => {
+        const { data, error } = await supabase.from('WithdrawalRequest').insert([payload]).select();
+        throwIfError(error);
+        return data?.[0];
+      },
       update: async (id, payload) => {
         const { data, error } = await supabase.from('WithdrawalRequest').update(payload).eq('id', id).select();
         throwIfError(error);
