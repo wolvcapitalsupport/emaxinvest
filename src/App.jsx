@@ -13,6 +13,7 @@ import Terms from './pages/Terms.jsx';
 import AuthRedirect from './pages/AuthRedirect.jsx';
 import Admin from './pages/Admin.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
+import AdminCampaigns from './pages/AdminCampaigns.jsx';
 import PageNotFound from '@/lib/PageNotFound.jsx';
 import Forbidden from './pages/Forbidden.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
@@ -40,6 +41,7 @@ export default function App() {
         {/* Admin routes require both authentication and admin role */}
         <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
         <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+        <Route path="/admin/campaigns" element={<AdminRoute><AdminCampaigns /></AdminRoute>} />
       </Route>
 
       <Route path="/403" element={<Forbidden />} />

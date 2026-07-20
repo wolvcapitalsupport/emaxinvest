@@ -4,7 +4,7 @@ import { base44, isAdminUser, supabase } from "@/api/base44Client";
 import {
   LayoutDashboard, TrendingUp, ArrowDownCircle, History,
   LogOut, Menu, X, Shield, ShieldCheck, Users, ChevronRight, ScrollText,
-  BadgeCheck, Clock, ShieldAlert
+  BadgeCheck, Clock, ShieldAlert, Megaphone
 } from "lucide-react";
 
 const navItems = [
@@ -18,6 +18,7 @@ const navItems = [
 const adminItems = [
   { label: "Admin Panel", icon: Shield, path: "/admin" },
   { label: "User Management", icon: Users, path: "/admin/users" },
+  { label: "Campaigns", icon: Megaphone, path: "/admin/campaigns" },
 ];
 
 function KycStatusBadge({ userId }) {

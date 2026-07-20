@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { calcInvestmentProgress, isInvestmentMatured, calcCreditedRoi, calcCreditedPayout } from "@/lib/plans";
 import { accrueActiveInvestments } from "@/lib/roiAccrual";
+import CampaignPopup from "@/components/CampaignPopup";
 
 const statusColors = {
   pending: "bg-yellow-900/40 text-yellow-300 border-yellow-700/50",
@@ -171,6 +172,7 @@ export default function Dashboard() {
 
   return (
     <AppLayout user={user} userProfile={userProfile}>
+      <CampaignPopup />
       <div className="space-y-8">
         {/* Welcome */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
