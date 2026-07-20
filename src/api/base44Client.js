@@ -128,9 +128,16 @@ export const normalizeAuthUser = (user) => {
     (user.app_metadata?.is_admin ? 'admin' : null) ||
     (user.user_metadata?.is_admin ? 'admin' : null);
 
+  const resolvedFullName =
+    user.full_name ||
+    user.user_metadata?.full_name ||
+    user.raw_user_meta_data?.full_name ||
+    null;
+
   return {
     ...user,
     role: normalizeRole(resolvedRole),
+    full_name: resolvedFullName,
   };
 };
 
@@ -183,10 +190,11 @@ export const base44 = {
       return data;
     },
 
-    register: async ({ email, password }) => {
+    register: async ({ email, password, full_name }) => {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: full_name ? { data: { full_name } } : undefined,
       });
       throwIfError(error);
       return data;

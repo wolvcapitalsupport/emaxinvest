@@ -149,6 +149,10 @@ export const computeDueRoiAccrual = (investment) => {
   if (!investment || investment.status !== "active") {
     return null;
   }
+  // Paused investments accrue nothing at all until resumed.
+  if (investment.paused) {
+    return null;
+  }
 
   const { start, end } = resolveInvestmentTimeline(investment);
   if (!start || !end) {
@@ -163,7 +167,14 @@ export const computeDueRoiAccrual = (investment) => {
   const now = new Date();
   const cappedNow = now < end ? now : end;
   const msPerDay = 24 * 60 * 60 * 1000;
-  const elapsedDays = Math.min(durationDays, Math.max(0, Math.floor((cappedNow - start) / msPerDay)));
+  // total_paused_days is permanently subtracted so days spent paused are
+  // never credited later — maturity_date is unaffected, so a paused
+  // investment simply ends up with fewer ROI days credited by maturity.
+  const totalPausedDays = Number(investment.total_paused_days) || 0;
+  const elapsedDays = Math.min(
+    durationDays,
+    Math.max(0, Math.floor((cappedNow - start) / msPerDay) - totalPausedDays)
+  );
 
   const alreadyCredited = Number(investment.roi_days_credited) || 0;
   const dueDays = Math.max(0, elapsedDays - alreadyCredited);

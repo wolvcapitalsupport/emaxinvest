@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { base44, isAdminUser } from "@/api/base44Client";
+import { base44, isAdminUser, supabase } from "@/api/base44Client";
 import {
   LayoutDashboard, TrendingUp, ArrowDownCircle, History,
-  LogOut, Menu, X, Shield, Users, ChevronRight, ScrollText
+  LogOut, Menu, X, Shield, ShieldCheck, Users, ChevronRight, ScrollText,
+  BadgeCheck, Clock, ShieldAlert
 } from "lucide-react";
 
 const navItems = [
@@ -11,12 +12,69 @@ const navItems = [
   { label: "Invest", icon: TrendingUp, path: "/invest" },
   { label: "Withdraw", icon: ArrowDownCircle, path: "/withdraw" },
   { label: "History", icon: History, path: "/history" },
+  { label: "Identity Verification", icon: ShieldCheck, path: "/kyc" },
 ];
 
 const adminItems = [
   { label: "Admin Panel", icon: Shield, path: "/admin" },
   { label: "User Management", icon: Users, path: "/admin/users" },
 ];
+
+function KycStatusBadge({ userId }) {
+  const [status, setStatus] = useState(null); // null = loading, 'none' | 'pending' | 'approved' | 'rejected'
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    supabase
+      .from("kyc_verifications")
+      .select("status")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setStatus(data?.length ? data[0].status : "none");
+      })
+      .catch(() => {
+        if (!cancelled) setStatus("none");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  if (!status) return null;
+
+  if (status === "approved") {
+    return (
+      <span className="hidden sm:flex items-center gap-1 text-xs bg-blue-500/15 text-blue-300 border border-blue-500/30 px-3 py-1 rounded-full">
+        <BadgeCheck size={12} />
+        Verified
+      </span>
+    );
+  }
+
+  if (status === "pending") {
+    return (
+      <span className="hidden sm:flex items-center gap-1 text-xs bg-amber-500/15 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full">
+        <Clock size={12} />
+        Verification Pending
+      </span>
+    );
+  }
+
+  // 'none' or 'rejected'
+  return (
+    <Link
+      to="/kyc"
+      className="hidden sm:flex items-center gap-1 text-xs bg-red-500/15 text-red-300 border border-red-500/30 px-3 py-1 rounded-full hover:bg-red-500/25 transition-colors"
+    >
+      <ShieldAlert size={12} />
+      Not Verified
+    </Link>
+  );
+}
 
 export default function AppLayout({ children, user, userProfile }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -143,6 +201,7 @@ export default function AppLayout({ children, user, userProfile }) {
             <span className="font-bold text-white font-body">EMAX</span>
           </div>
           <div className="ml-auto flex items-center gap-3">
+            {!isAdmin && <KycStatusBadge userId={user?.id} />}
             {isAdmin && (
               <span className="hidden sm:flex items-center gap-1 text-xs bg-primary/15 text-primary border border-primary/30 px-3 py-1 rounded-full">
                 <Shield size={10} />

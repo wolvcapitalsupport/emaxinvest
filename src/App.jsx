@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Invest from './pages/Invest.jsx';
 import Withdraw from './pages/Withdraw.jsx';
 import History from './pages/History.jsx';
+import KYC from './pages/KYC.jsx';
 import Terms from './pages/Terms.jsx';
 import AuthRedirect from './pages/AuthRedirect.jsx';
 import Admin from './pages/Admin.jsx';
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/invest" element={<Invest />} />
         <Route path="/withdraw" element={<Withdraw />} />
         <Route path="/history" element={<History />} />
+        <Route path="/kyc" element={<KYC />} />
 
         {/* Admin routes require both authentication and admin role */}
         <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />

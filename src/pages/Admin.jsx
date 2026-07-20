@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
-import { calcMaturityDate, calcInvestmentProgress, computeDueRoiAccrual } from "@/lib/plans";
+import AdminSendEmail from "@/components/admin/AdminSendEmail";
+import AdminKYC from "@/components/admin/AdminKYC";
+import { calcMaturityDate, calcInvestmentProgress, computeDueRoiAccrual, calcExpectedReturn } from "@/lib/plans";
 import { accrueInvestmentRoi, accrueActiveInvestments, approvePrincipalRelease, rejectPrincipalRelease } from "@/lib/roiAccrual";
 import {
   CheckCircle, XCircle, Clock, DollarSign, TrendingUp,
-  Users, AlertCircle, ChevronDown, ChevronUp, Eye, Unlock
+  Users, AlertCircle, ChevronDown, ChevronUp, Eye, Unlock,
+  Pause, Play, Pencil
 } from "lucide-react";
 
 const statusColors = {
@@ -28,6 +31,8 @@ export default function Admin() {
   const [expanded, setExpanded] = useState(null);
   const [noteMap, setNoteMap] = useState({});
   const [actionError, setActionError] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
 
   useEffect(() => { loadData(); }, []);
 
@@ -98,6 +103,91 @@ export default function Admin() {
         admin_note: noteMap[inv.id] || "Rejected by admin"
       });
       await loadData();
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const pauseInvestment = async (inv) => {
+    const reason = window.prompt(
+      `Enter a reason for pausing this ${inv.plan} plan investment (required):`
+    );
+    if (reason === null) return; // cancelled
+    if (!reason.trim()) {
+      setActionError("A reason is required to pause an investment.");
+      return;
+    }
+    setActionLoading(inv.id + "_pause");
+    try {
+      await base44.entities.Investment.update(inv.id, {
+        paused: true,
+        paused_at: new Date().toISOString(),
+        pause_reason: reason.trim(),
+      });
+      await loadData();
+      setActionError("");
+    } catch (error) {
+      setActionError(error.message || "Unable to pause this investment.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const resumeInvestment = async (inv) => {
+    setActionLoading(inv.id + "_resume");
+    try {
+      const pausedAt = inv.paused_at ? new Date(inv.paused_at) : null;
+      const daysPaused = pausedAt
+        ? Math.max(0, Math.floor((Date.now() - pausedAt.getTime()) / (24 * 60 * 60 * 1000)))
+        : 0;
+      await base44.entities.Investment.update(inv.id, {
+        paused: false,
+        paused_at: null,
+        pause_reason: null,
+        total_paused_days: (Number(inv.total_paused_days) || 0) + daysPaused,
+      });
+      await loadData();
+      setActionError("");
+    } catch (error) {
+      setActionError(error.message || "Unable to resume this investment.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const startEditing = (inv) => {
+    setEditingId(inv.id);
+    setExpanded(inv.id);
+    setEditForm({
+      amount: inv.amount,
+      roi_percentage: inv.roi_percentage,
+      maturity_date: inv.maturity_date ? inv.maturity_date.slice(0, 10) : "",
+    });
+  };
+
+  const saveInvestmentEdit = async (inv) => {
+    setActionLoading(inv.id + "_edit");
+    try {
+      const amount = Number(editForm.amount);
+      const roi_percentage = Number(editForm.roi_percentage);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error("Enter a valid amount.");
+      if (!Number.isFinite(roi_percentage) || roi_percentage < 0) throw new Error("Enter a valid ROI %.");
+
+      const expected_return = calcExpectedReturn(amount, roi_percentage);
+      const updates = {
+        amount,
+        roi_percentage,
+        expected_return,
+      };
+      if (editForm.maturity_date) {
+        updates.maturity_date = new Date(editForm.maturity_date).toISOString();
+      }
+      await base44.entities.Investment.update(inv.id, updates);
+      setEditingId(null);
+      await loadData();
+      setActionError("");
+    } catch (error) {
+      setActionError(error.message || "Unable to save changes.");
     } finally {
       setActionLoading(null);
     }
@@ -291,7 +381,7 @@ export default function Admin() {
 
         {/* Tabs */}
         <div className="flex gap-4 border-b border-border">
-          {["investments", "withdrawals"].map(t => (
+          {["investments", "withdrawals", "kyc", "emails"].map(t => (
             <button
               key={t}
               onClick={() => { setTab(t); setFilter("pending"); }}
@@ -303,6 +393,7 @@ export default function Admin() {
         </div>
 
         {/* Filter */}
+        {tab !== "emails" && tab !== "kyc" && (
         <div className="flex gap-2 flex-wrap">
           {(tab === "investments" ? ["pending", "active", "matured_awaiting_release", "completed", "rejected", "all"] : ["pending", "approved", "paid", "rejected", "all"]).map(f => (
             <button
@@ -314,6 +405,21 @@ export default function Admin() {
             </button>
           ))}
         </div>
+        )}
+
+        {/* KYC Review */}
+        {tab === "kyc" && (
+          <div className="bg-card border border-border rounded-2xl p-6">
+            <AdminKYC />
+          </div>
+        )}
+
+        {/* Send Email */}
+        {tab === "emails" && (
+          <div className="bg-card border border-border rounded-2xl p-6">
+            <AdminSendEmail />
+          </div>
+        )}
 
         {/* Investment List */}
         {tab === "investments" && (
@@ -347,6 +453,9 @@ export default function Admin() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-display font-bold">{inv.plan}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full border ${statusColors[inv.status]}`}>{inv.status}</span>
+                        {inv.paused && (
+                          <span className="text-xs px-2 py-0.5 rounded-full border bg-orange-900/40 text-orange-300 border-orange-700/50">paused</span>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground">{inv.user_name || inv.user_email}</p>
                       <p className="text-xs text-muted-foreground">
@@ -365,6 +474,36 @@ export default function Admin() {
                       >
                         {expanded === inv.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </button>
+                      {inv.status === "active" && (
+                        <>
+                          <button
+                            onClick={() => startEditing(inv)}
+                            disabled={!!actionLoading}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary hover:bg-secondary/80 text-xs font-medium transition-colors disabled:opacity-50"
+                          >
+                            <Pencil size={14} /> Edit
+                          </button>
+                          {inv.paused ? (
+                            <button
+                              onClick={() => resumeInvestment(inv)}
+                              disabled={!!actionLoading}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-900/30 text-blue-300 border border-blue-700/40 text-xs font-medium hover:bg-blue-900/50 transition-colors disabled:opacity-50"
+                            >
+                              <Play size={14} />
+                              {actionLoading === inv.id + "_resume" ? "..." : "Resume"}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => pauseInvestment(inv)}
+                              disabled={!!actionLoading}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-orange-900/30 text-orange-300 border border-orange-700/40 text-xs font-medium hover:bg-orange-900/50 transition-colors disabled:opacity-50"
+                            >
+                              <Pause size={14} />
+                              {actionLoading === inv.id + "_pause" ? "..." : "Pause"}
+                            </button>
+                          )}
+                        </>
+                      )}
                       {inv.status === "pending" && (
                         <>
                           <button
@@ -457,6 +596,60 @@ export default function Admin() {
                       />
                     </div>
                     {inv.admin_note && <p className="text-xs text-muted-foreground">Saved note: "{inv.admin_note}"</p>}
+                    {inv.paused && inv.pause_reason && (
+                      <p className="text-xs text-orange-300">Paused reason: "{inv.pause_reason}"</p>
+                    )}
+
+                    {editingId === inv.id && (
+                      <div className="border-t border-border pt-3 mt-3 space-y-3">
+                        <p className="text-xs font-semibold text-muted-foreground">Edit Investment</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground block mb-1">Amount ($)</label>
+                            <input
+                              type="number"
+                              value={editForm.amount}
+                              onChange={(e) => setEditForm((f) => ({ ...f, amount: e.target.value }))}
+                              className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground block mb-1">ROI %</label>
+                            <input
+                              type="number"
+                              value={editForm.roi_percentage}
+                              onChange={(e) => setEditForm((f) => ({ ...f, roi_percentage: e.target.value }))}
+                              className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground block mb-1">Maturity Date</label>
+                            <input
+                              type="date"
+                              value={editForm.maturity_date}
+                              onChange={(e) => setEditForm((f) => ({ ...f, maturity_date: e.target.value }))}
+                              className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => saveInvestmentEdit(inv)}
+                            disabled={!!actionLoading}
+                            className="px-4 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                            style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
+                          >
+                            {actionLoading === inv.id + "_edit" ? "Saving..." : "Save Changes"}
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="px-4 py-2 rounded-lg text-xs font-medium bg-secondary hover:bg-secondary/80 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

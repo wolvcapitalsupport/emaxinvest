@@ -48,6 +48,8 @@ function resolveTimeline(investment: Record<string, any>) {
 
 function computeDueRoiAccrual(investment: Record<string, any>) {
   if (!investment || investment.status !== "active") return null;
+  // Paused investments accrue nothing at all until resumed.
+  if (investment.paused) return null;
 
   const { start, end } = resolveTimeline(investment);
   if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
@@ -57,9 +59,12 @@ function computeDueRoiAccrual(investment: Record<string, any>) {
 
   const now = new Date();
   const cappedNow = now < end ? now : end;
+  // total_paused_days is permanently subtracted so days spent paused are
+  // never credited later — mirrors src/lib/plans.js computeDueRoiAccrual.
+  const totalPausedDays = Number(investment.total_paused_days) || 0;
   const elapsedDays = Math.min(
     durationDays,
-    Math.max(0, Math.floor((cappedNow.getTime() - start.getTime()) / MS_PER_DAY)),
+    Math.max(0, Math.floor((cappedNow.getTime() - start.getTime()) / MS_PER_DAY) - totalPausedDays),
   );
 
   const alreadyCredited = Number(investment.roi_days_credited) || 0;

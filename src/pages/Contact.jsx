@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Mail, MessageSquare, Clock, ChevronRight, Zap, Send } from "lucide-react";
+import { supabase } from "@/api/base44Client";
 
 const NavLinks = () => (
   <div className="flex items-center gap-6">
@@ -42,9 +43,27 @@ const Footer = () => (
 export default function Contact() {
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
   const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = () => {
-    setSent(true);
+  const handleSubmit = async () => {
+    setError("");
+    if (!form.email.trim() || !form.message.trim()) {
+      setError("Please fill in your email and message.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { error: fnError } = await supabase.functions.invoke("send-contact-email", {
+        body: form,
+      });
+      if (fnError) throw fnError;
+      setSent(true);
+    } catch (err) {
+      setError("Something went wrong sending your message. Please try again or email us directly.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -127,8 +146,13 @@ export default function Contact() {
                   <label className="text-xs text-slate-500 font-body block mb-1.5">Message</label>
                   <textarea rows={5} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder="Write your message here..." className="w-full px-4 py-2.5 rounded-lg text-sm text-white placeholder-slate-600 outline-none resize-none font-body" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }} />
                 </div>
-                <button onClick={handleSubmit} className="w-full py-3 rounded-lg font-semibold text-sm hover:opacity-90 transition-all font-body flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}>
-                  Send Message <ChevronRight size={16} />
+                {error && (
+                  <div className="p-3 rounded-lg text-sm text-red-300" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                    {error}
+                  </div>
+                )}
+                <button onClick={handleSubmit} disabled={submitting} className="w-full py-3 rounded-lg font-semibold text-sm hover:opacity-90 transition-all font-body flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}>
+                  {submitting ? "Sending..." : "Send Message"} <ChevronRight size={16} />
                 </button>
               </div>
             )}

@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/use-toast";
 
 export default function Register() {
   const navigate = useNavigate();
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -20,13 +21,17 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!fullName.trim()) {
+      setError("Please enter your full name");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
     setLoading(true);
     try {
-      await base44.auth.register({ email, password });
+      await base44.auth.register({ email, password, full_name: fullName.trim() });
       toast({
         title: "Account created",
         description: "Check your email to confirm your address before logging in.",
@@ -82,6 +87,22 @@ export default function Register() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="fullName">Full Name</Label>
+          <div className="relative">
+            <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Input
+              id="fullName"
+              type="text"
+              autoComplete="name"
+              placeholder="Jane Doe"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="pl-10 h-12"
+              required
+            />
+          </div>
+        </div>
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <div className="relative">
