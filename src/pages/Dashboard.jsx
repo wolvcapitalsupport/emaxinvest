@@ -252,15 +252,30 @@ export default function Dashboard() {
               {activeSnapshots.map((inv) => (
                 <div key={`${inv.id}_progress`} className="rounded-xl bg-secondary/40 border border-border px-4 py-3">
                   <div className="flex items-center justify-between gap-3 mb-1.5">
-                    <p className="text-sm font-medium">{inv.plan}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{inv.plan}</p>
+                      {inv.paused && (
+                        <span className="text-xs px-2 py-0.5 rounded-full border bg-orange-900/40 text-orange-300 border-orange-700/50">
+                          Paused
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">{inv.progress}% elapsed</p>
                   </div>
+                  {inv.paused && (
+                    <div className="mb-2 rounded-lg bg-orange-900/20 border border-orange-700/30 px-3 py-2">
+                      <p className="text-xs text-orange-300">
+                        This plan is temporarily paused and isn't accruing new earnings right now.
+                        {inv.pause_reason ? ` Reason: "${inv.pause_reason}"` : " Contact support for details."}
+                      </p>
+                    </div>
+                  )}
                   <div className="h-2 rounded-full bg-secondary overflow-hidden mb-2">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
                         width: `${inv.progress}%`,
-                        background: "linear-gradient(135deg, #93C5FD, #BFDBFE)",
+                        background: inv.paused ? "linear-gradient(135deg, #FDBA74, #FED7AA)" : "linear-gradient(135deg, #93C5FD, #BFDBFE)",
                       }}
                     />
                   </div>
