@@ -19,6 +19,13 @@
     "discounted_amount": {
       "type": "number"
     },
+    "bonus_amount": {
+      "type": "number"
+    },
+    "applied": {
+      "type": "boolean",
+      "default": false
+    },
     "starts_at": {
       "type": "string"
     },

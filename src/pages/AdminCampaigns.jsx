@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
-import { Megaphone, Plus, Trash2, X } from "lucide-react";
+import { Megaphone, Plus, Trash2, X, Gift } from "lucide-react";
 import { INVESTMENT_PLANS } from "@/lib/plans";
 import { isCampaignLive } from "@/lib/campaigns";
 
@@ -11,6 +11,7 @@ const emptyForm = {
   message: "",
   plan_name: "",
   discounted_amount: "",
+  bonus_amount: "",
   starts_at: "",
   ends_at: "",
   active: true,
@@ -25,6 +26,7 @@ export default function AdminCampaigns() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [applyingId, setApplyingId] = useState(null);
 
   useEffect(() => { loadData(); }, []);
 
@@ -62,6 +64,13 @@ export default function AdminCampaigns() {
         return;
       }
     }
+    if (form.type === "bonus") {
+      const bonus = parseFloat(form.bonus_amount);
+      if (isNaN(bonus) || bonus <= 0) {
+        setError("Enter a real bonus amount greater than $0.");
+        return;
+      }
+    }
     setSaving(true);
     try {
       await base44.entities.Campaign.create({
@@ -70,6 +79,8 @@ export default function AdminCampaigns() {
         message: form.message.trim(),
         plan_name: form.type === "discount" ? form.plan_name : null,
         discounted_amount: form.type === "discount" ? parseFloat(form.discounted_amount) : null,
+        bonus_amount: form.type === "bonus" ? parseFloat(form.bonus_amount) : null,
+        applied: false,
         starts_at: form.starts_at || new Date().toISOString(),
         ends_at: new Date(form.ends_at).toISOString(),
         active: true,
@@ -92,6 +103,42 @@ export default function AdminCampaigns() {
     if (!confirm(`Delete "${campaign.title}"? This can't be undone.`)) return;
     await base44.entities.Campaign.delete(campaign.id);
     await loadData();
+  };
+
+  // Credits every active user's wallet with the real bonus_amount, logs a
+  // Transaction per user for the audit trail, then marks the campaign as
+  // applied so it can never be double-run.
+  const applyBonus = async (campaign) => {
+    const amount = Number(campaign.bonus_amount);
+    if (!amount || amount <= 0) return;
+    if (!confirm(`Credit $${amount.toLocaleString()} to every active user's wallet? This applies once and can't be undone.`)) return;
+
+    setApplyingId(campaign.id);
+    try {
+      const profiles = await base44.entities.UserProfile.list("-created_date", 1000);
+      const activeProfiles = profiles.filter(p => (p.account_status || "active") === "active");
+
+      for (const profile of activeProfiles) {
+        const newBalance = (Number(profile.wallet_balance) || 0) + amount;
+        await base44.entities.UserProfile.update(profile.id, { wallet_balance: newBalance });
+        await base44.entities.Transaction.create({
+          user_id: profile.user_id,
+          user_email: profile.user_email || profile.email,
+          investment_id: "",
+          type: "adjustment",
+          amount: amount,
+          description: `${campaign.title} — bonus credit`,
+          status: "completed",
+        });
+      }
+
+      await base44.entities.Campaign.update(campaign.id, { applied: true });
+      await loadData();
+    } catch (e) {
+      setError(e.message || "Failed to apply bonus to all users.");
+    } finally {
+      setApplyingId(null);
+    }
   };
 
   if (loading) {
@@ -119,6 +166,12 @@ export default function AdminCampaigns() {
             {showForm ? "Cancel" : "New Campaign"}
           </button>
         </div>
+
+        {error && !showForm && (
+          <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-sm text-destructive">
+            {error}
+          </div>
+        )}
 
         {showForm && (
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
@@ -166,6 +219,21 @@ export default function AdminCampaigns() {
                   onChange={e => setForm(f => ({ ...f, discounted_amount: e.target.value }))}
                   placeholder="New minimum entry amount ($)"
                   className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                />
+              </div>
+            )}
+
+            {form.type === "bonus" && (
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">
+                  Bonus amount per active user ($) — credited to real wallet balance when you click "Apply" below
+                </label>
+                <input
+                  type="number"
+                  value={form.bonus_amount}
+                  onChange={e => setForm(f => ({ ...f, bonus_amount: e.target.value }))}
+                  placeholder="e.g. 25"
+                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
                 />
               </div>
             )}
@@ -222,6 +290,11 @@ export default function AdminCampaigns() {
                       <span className={`text-xs px-2 py-0.5 rounded-full border ${live ? "bg-green-900/40 text-green-300 border-green-700/50" : "bg-secondary text-muted-foreground border-border"}`}>
                         {live ? "Live" : c.active ? "Scheduled/Expired" : "Disabled"}
                       </span>
+                      {c.type === "bonus" && c.applied && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/40 text-blue-300 border border-blue-700/50">
+                          Applied
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">{c.message}</p>
                     {c.type === "discount" && (
@@ -229,11 +302,27 @@ export default function AdminCampaigns() {
                         {c.plan_name}: ${c.discounted_amount?.toLocaleString()} entry (discounted)
                       </p>
                     )}
+                    {c.type === "bonus" && (
+                      <p className="text-xs text-primary">
+                        ${Number(c.bonus_amount).toLocaleString()} per active user
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-1">
                       {new Date(c.starts_at).toLocaleString()} → {new Date(c.ends_at).toLocaleString()}
                     </p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
+                    {c.type === "bonus" && !c.applied && (
+                      <button
+                        onClick={() => applyBonus(c)}
+                        disabled={applyingId === c.id}
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50"
+                        style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
+                      >
+                        <Gift size={13} />
+                        {applyingId === c.id ? "Applying..." : "Apply to All"}
+                      </button>
+                    )}
                     <button
                       onClick={() => toggleActive(c)}
                       className="text-xs px-3 py-1.5 rounded-lg bg-secondary border border-border hover:bg-secondary/80"

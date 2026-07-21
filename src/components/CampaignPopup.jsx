@@ -23,8 +23,6 @@ export default function CampaignPopup() {
         const next = live.find(c => !dismissed.includes(c.id));
         if (!cancelled && next) {
           setCampaign(next);
-          // Small delay so it appears a moment after the dashboard loads, not
-          // instantly on top of the page transition.
           setTimeout(() => setVisible(true), 600);
         }
       } catch {
@@ -70,6 +68,14 @@ export default function CampaignPopup() {
             <p className="text-xs text-muted-foreground">{campaign.plan_name} plan entry</p>
             <p className="text-base font-semibold text-primary">
               ${Number(campaign.discounted_amount).toLocaleString()}
+            </p>
+          </div>
+        )}
+        {campaign.type === "bonus" && campaign.bonus_amount && (
+          <div className="rounded-lg bg-secondary/60 border border-border px-3 py-2 mb-4">
+            <p className="text-xs text-muted-foreground">Bonus credit</p>
+            <p className="text-base font-semibold text-primary">
+              ${Number(campaign.bonus_amount).toLocaleString()}
             </p>
           </div>
         )}
