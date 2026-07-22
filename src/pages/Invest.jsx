@@ -180,11 +180,7 @@ export default function Invest() {
                       <p className="text-xs text-muted-foreground font-medium">{plan.badge}</p>
                       {discount && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-orange-900/40 text-orange-300 border border-orange-700/50">
-<<<<<<< HEAD
-                          Discounted
-=======
                           {Math.round((1 - effectiveAmount / plan.amount) * 100)}% off
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
                         </span>
                       )}
                     </div>

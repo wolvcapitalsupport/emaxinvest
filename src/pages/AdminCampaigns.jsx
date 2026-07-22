@@ -1,17 +1,9 @@
 import { useState, useEffect } from "react";
-<<<<<<< HEAD
-import { base44 } from "@/api/base44Client";
-import AppLayout from "@/components/layout/AppLayout";
-import { Megaphone, Plus, Trash2, X, Gift } from "lucide-react";
-import { INVESTMENT_PLANS } from "@/lib/plans";
-import { isCampaignLive } from "@/lib/campaigns";
-=======
 import { base44, supabase } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
 import { Megaphone, Plus, Trash2, X, Gift } from "lucide-react";
 import { INVESTMENT_PLANS } from "@/lib/plans";
 import { isCampaignLive, getDiscountDetails } from "@/lib/campaigns";
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
 
 const emptyForm = {
   type: "announcement",
@@ -23,10 +15,7 @@ const emptyForm = {
   starts_at: "",
   ends_at: "",
   active: true,
-<<<<<<< HEAD
-=======
   notify_email: true,
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
 };
 
 export default function AdminCampaigns() {
@@ -39,10 +28,7 @@ export default function AdminCampaigns() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [applyingId, setApplyingId] = useState(null);
-<<<<<<< HEAD
-=======
   const [emailStatus, setEmailStatus] = useState("");
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
 
   useEffect(() => { loadData(); }, []);
 
@@ -101,8 +87,6 @@ export default function AdminCampaigns() {
         ends_at: new Date(form.ends_at).toISOString(),
         active: true,
       });
-<<<<<<< HEAD
-=======
 
       if (form.notify_email) {
         setEmailStatus("Sending notification emails...");
@@ -125,7 +109,6 @@ export default function AdminCampaigns() {
         }
       }
 
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
       await loadData();
       resetForm();
     } catch (e) {
@@ -243,26 +226,6 @@ export default function AdminCampaigns() {
             />
 
             {form.type === "discount" && (
-<<<<<<< HEAD
-              <div className="grid grid-cols-2 gap-3">
-                <select
-                  value={form.plan_name}
-                  onChange={e => setForm(f => ({ ...f, plan_name: e.target.value }))}
-                  className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                >
-                  <option value="">Select plan...</option>
-                  {INVESTMENT_PLANS.map(p => (
-                    <option key={p.name} value={p.name}>{p.name} (normally ${p.amount.toLocaleString()})</option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  value={form.discounted_amount}
-                  onChange={e => setForm(f => ({ ...f, discounted_amount: e.target.value }))}
-                  placeholder="New minimum entry amount ($)"
-                  className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                />
-=======
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <select
@@ -297,7 +260,6 @@ export default function AdminCampaigns() {
                     </div>
                   );
                 })()}
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
               </div>
             )}
 
@@ -337,9 +299,6 @@ export default function AdminCampaigns() {
               </div>
             </div>
 
-<<<<<<< HEAD
-            {error && <p className="text-xs text-destructive">{error}</p>}
-=======
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input
                 type="checkbox"
@@ -354,7 +313,6 @@ export default function AdminCampaigns() {
 
             {error && <p className="text-xs text-destructive">{error}</p>}
             {emailStatus && <p className="text-xs text-primary">{emailStatus}</p>}
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
 
             <button
               onClick={submitCampaign}
@@ -392,13 +350,6 @@ export default function AdminCampaigns() {
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">{c.message}</p>
-<<<<<<< HEAD
-                    {c.type === "discount" && (
-                      <p className="text-xs text-primary">
-                        {c.plan_name}: ${c.discounted_amount?.toLocaleString()} entry (discounted)
-                      </p>
-                    )}
-=======
                     {c.type === "discount" && (() => {
                       const plan = INVESTMENT_PLANS.find(p => p.name === c.plan_name);
                       if (!plan) return (
@@ -411,7 +362,6 @@ export default function AdminCampaigns() {
                         </p>
                       );
                     })()}
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
                     {c.type === "bonus" && (
                       <p className="text-xs text-primary">
                         ${Number(c.bonus_amount).toLocaleString()} per active user

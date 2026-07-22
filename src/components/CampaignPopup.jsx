@@ -1,15 +1,9 @@
 import { useState, useEffect } from "react";
-<<<<<<< HEAD
-import { X, Megaphone, Gift, Tag } from "lucide-react";
-import { base44 } from "@/api/base44Client";
-import { getLiveCampaigns, getDismissedCampaignIds, dismissCampaign } from "@/lib/campaigns";
-=======
 import { Link } from "react-router-dom";
 import { X, Megaphone, Gift, Tag } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { getLiveCampaigns } from "@/lib/campaigns";
 import { INVESTMENT_PLANS } from "@/lib/plans";
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
 
 const typeIcon = {
   announcement: Megaphone,
@@ -17,11 +11,6 @@ const typeIcon = {
   discount: Tag,
 };
 
-<<<<<<< HEAD
-export default function CampaignPopup() {
-  const [campaign, setCampaign] = useState(null);
-  const [visible, setVisible] = useState(false);
-=======
 // Dismissal is keyed to (user id + this login's last_sign_in_at timestamp),
 // stored in localStorage so it survives page navigation and even closing the
 // tab — but resets automatically on every fresh login, since Supabase stamps
@@ -54,17 +43,11 @@ export default function CampaignPopup() {
   const [visible, setVisible] = useState(false);
   const [userId, setUserId] = useState(null);
   const [loginStamp, setLoginStamp] = useState(null);
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-<<<<<<< HEAD
-        const all = await base44.entities.Campaign.list("-created_date", 50);
-        const live = getLiveCampaigns(all);
-        const dismissed = getDismissedCampaignIds();
-=======
         const user = await base44.auth.me();
         if (!user) return;
         const stamp = user.last_sign_in_at || "unknown";
@@ -75,18 +58,13 @@ export default function CampaignPopup() {
         const all = await base44.entities.Campaign.list("-created_date", 50);
         const live = getLiveCampaigns(all);
         const dismissed = getDismissedIds(user.id, stamp);
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
         const next = live.find(c => !dismissed.includes(c.id));
         if (!cancelled && next) {
           setCampaign(next);
           setTimeout(() => setVisible(true), 600);
         }
       } catch {
-<<<<<<< HEAD
-        // Campaign table may not exist yet in some environments — fail silently
-=======
         // Campaign table may not exist yet, or auth not ready — fail silently
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
       }
     })();
     return () => { cancelled = true; };
@@ -96,21 +74,14 @@ export default function CampaignPopup() {
 
   const close = () => {
     setVisible(false);
-<<<<<<< HEAD
-    dismissCampaign(campaign.id);
-=======
     if (userId && loginStamp) markDismissed(userId, loginStamp, campaign.id);
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
     setTimeout(() => setCampaign(null), 200);
   };
 
   const Icon = typeIcon[campaign.type] || Megaphone;
-<<<<<<< HEAD
-=======
   const plan = campaign.type === "discount" ? INVESTMENT_PLANS.find(p => p.name === campaign.plan_name) : null;
   const discountedAmount = campaign.type === "discount" ? Number(campaign.discounted_amount) : null;
   const percentOff = plan && discountedAmount ? Math.round((1 - discountedAmount / plan.amount) * 100) : null;
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
 
   return (
     <div
@@ -133,16 +104,6 @@ export default function CampaignPopup() {
         </div>
         <h3 className="text-lg font-display font-bold mb-2">{campaign.title}</h3>
         <p className="text-sm text-muted-foreground mb-4">{campaign.message}</p>
-<<<<<<< HEAD
-        {campaign.type === "discount" && campaign.plan_name && (
-          <div className="rounded-lg bg-secondary/60 border border-border px-3 py-2 mb-4">
-            <p className="text-xs text-muted-foreground">{campaign.plan_name} plan entry</p>
-            <p className="text-base font-semibold text-primary">
-              ${Number(campaign.discounted_amount).toLocaleString()}
-            </p>
-          </div>
-        )}
-=======
 
         {campaign.type === "discount" && plan && (
           <div className="rounded-lg bg-secondary/60 border border-border px-3 py-2 mb-4 space-y-1">
@@ -162,7 +123,6 @@ export default function CampaignPopup() {
           </div>
         )}
 
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
         {campaign.type === "bonus" && campaign.bonus_amount && (
           <div className="rounded-lg bg-secondary/60 border border-border px-3 py-2 mb-4">
             <p className="text-xs text-muted-foreground">Bonus credit</p>
@@ -171,18 +131,6 @@ export default function CampaignPopup() {
             </p>
           </div>
         )}
-<<<<<<< HEAD
-        <p className="text-xs text-muted-foreground mb-4">
-          Ends {new Date(campaign.ends_at).toLocaleDateString()}
-        </p>
-        <button
-          onClick={close}
-          className="w-full py-2.5 rounded-lg text-sm font-semibold hover:opacity-90"
-          style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
-        >
-          Got it
-        </button>
-=======
 
         <p className="text-xs text-muted-foreground mb-4">
           Ends {new Date(campaign.ends_at).toLocaleDateString()}
@@ -223,7 +171,6 @@ export default function CampaignPopup() {
             </button>
           )}
         </div>
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
       </div>
     </div>
   );

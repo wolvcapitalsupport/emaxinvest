@@ -16,8 +16,6 @@ export const getActiveDiscountForPlan = (campaigns, planName) => {
   ) || null;
 };
 
-<<<<<<< HEAD
-=======
 // Concrete, non-vague discount facts for a plan + its live discount campaign —
 // used by the admin form, admin list, popup, and Invest page so the real
 // numbers are always shown, regardless of what the admin typed in "message".
@@ -36,7 +34,6 @@ export const getDiscountDetails = (plan, discount) => {
   };
 };
 
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
 // sessionStorage-based dismissal so the popup shows once per login session,
 // not on every page navigation, but reappears on a fresh login.
 const DISMISSED_KEY = "emax_dismissed_campaigns";
