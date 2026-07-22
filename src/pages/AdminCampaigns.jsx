@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { base44, supabase } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
 import { Megaphone, Plus, Trash2, X, Gift } from "lucide-react";
 import { INVESTMENT_PLANS } from "@/lib/plans";
-import { isCampaignLive } from "@/lib/campaigns";
+import { isCampaignLive, getDiscountDetails } from "@/lib/campaigns";
 
 const emptyForm = {
   type: "announcement",
@@ -15,6 +15,7 @@ const emptyForm = {
   starts_at: "",
   ends_at: "",
   active: true,
+  notify_email: true,
 };
 
 export default function AdminCampaigns() {
@@ -27,6 +28,7 @@ export default function AdminCampaigns() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [applyingId, setApplyingId] = useState(null);
+  const [emailStatus, setEmailStatus] = useState("");
 
   useEffect(() => { loadData(); }, []);
 
@@ -85,6 +87,28 @@ export default function AdminCampaigns() {
         ends_at: new Date(form.ends_at).toISOString(),
         active: true,
       });
+
+      if (form.notify_email) {
+        setEmailStatus("Sending notification emails...");
+        try {
+          const { data, error: fnError } = await supabase.functions.invoke("admin-send-email", {
+            body: {
+              audience: "broadcast",
+              mode: "freeform",
+              subject: form.title.trim(),
+              message: form.message.trim(),
+            },
+          });
+          if (fnError || data?.error) {
+            setEmailStatus(`Campaign created, but email failed: ${fnError?.message || data?.error}`);
+          } else {
+            setEmailStatus(`Campaign created. Emailed ${data.sent} user(s)${data.failedCount ? `, ${data.failedCount} failed` : ""}.`);
+          }
+        } catch (fnErr) {
+          setEmailStatus(`Campaign created, but email failed: ${fnErr.message || fnErr}`);
+        }
+      }
+
       await loadData();
       resetForm();
     } catch (e) {
@@ -105,6 +129,9 @@ export default function AdminCampaigns() {
     await loadData();
   };
 
+  // Credits every active user's wallet with the real bonus_amount, logs a
+  // Transaction per user for the audit trail, then marks the campaign as
+  // applied so it can never be double-run.
   const applyBonus = async (campaign) => {
     const amount = Number(campaign.bonus_amount);
     if (!amount || amount <= 0) return;
@@ -199,24 +226,40 @@ export default function AdminCampaigns() {
             />
 
             {form.type === "discount" && (
-              <div className="grid grid-cols-2 gap-3">
-                <select
-                  value={form.plan_name}
-                  onChange={e => setForm(f => ({ ...f, plan_name: e.target.value }))}
-                  className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                >
-                  <option value="">Select plan...</option>
-                  {INVESTMENT_PLANS.map(p => (
-                    <option key={p.name} value={p.name}>{p.name} (normally ${p.amount.toLocaleString()})</option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  value={form.discounted_amount}
-                  onChange={e => setForm(f => ({ ...f, discounted_amount: e.target.value }))}
-                  placeholder="New minimum entry amount ($)"
-                  className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                />
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={form.plan_name}
+                    onChange={e => setForm(f => ({ ...f, plan_name: e.target.value }))}
+                    className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  >
+                    <option value="">Select plan...</option>
+                    {INVESTMENT_PLANS.map(p => (
+                      <option key={p.name} value={p.name}>{p.name} (normally ${p.amount.toLocaleString()})</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    value={form.discounted_amount}
+                    onChange={e => setForm(f => ({ ...f, discounted_amount: e.target.value }))}
+                    placeholder="New minimum entry amount ($)"
+                    className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+                {(() => {
+                  const plan = INVESTMENT_PLANS.find(p => p.name === form.plan_name);
+                  const discounted = parseFloat(form.discounted_amount);
+                  if (!plan || isNaN(discounted) || discounted <= 0 || discounted >= plan.amount) return null;
+                  const percentOff = Math.round((1 - discounted / plan.amount) * 100);
+                  return (
+                    <div className="rounded-lg bg-secondary/60 border border-border px-3 py-2 text-xs text-muted-foreground space-y-0.5">
+                      <p>This is exactly what users will see and get — not a marketing estimate:</p>
+                      <p className="text-primary font-medium">
+                        {plan.name}: ${plan.amount.toLocaleString()} → ${discounted.toLocaleString()} entry ({percentOff}% off), {plan.duration}-day term, {plan.roi}% ROI, unchanged
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -256,7 +299,20 @@ export default function AdminCampaigns() {
               </div>
             </div>
 
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.notify_email}
+                onChange={e => setForm(f => ({ ...f, notify_email: e.target.checked }))}
+                className="rounded border-border"
+              />
+              <span className="text-muted-foreground">
+                Email all users now (uses the title and message above) — turn off if scheduling for later
+              </span>
+            </label>
+
             {error && <p className="text-xs text-destructive">{error}</p>}
+            {emailStatus && <p className="text-xs text-primary">{emailStatus}</p>}
 
             <button
               onClick={submitCampaign}
@@ -294,11 +350,18 @@ export default function AdminCampaigns() {
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">{c.message}</p>
-                    {c.type === "discount" && (
-                      <p className="text-xs text-primary">
-                        {c.plan_name}: ${c.discounted_amount?.toLocaleString()} entry (discounted)
-                      </p>
-                    )}
+                    {c.type === "discount" && (() => {
+                      const plan = INVESTMENT_PLANS.find(p => p.name === c.plan_name);
+                      if (!plan) return (
+                        <p className="text-xs text-primary">{c.plan_name}: ${c.discounted_amount?.toLocaleString()} entry (discounted)</p>
+                      );
+                      const percentOff = Math.round((1 - Number(c.discounted_amount) / plan.amount) * 100);
+                      return (
+                        <p className="text-xs text-primary">
+                          {plan.name}: ${plan.amount.toLocaleString()} → ${Number(c.discounted_amount).toLocaleString()} ({percentOff}% off) · {plan.duration}-day term · {plan.roi}% ROI unchanged
+                        </p>
+                      );
+                    })()}
                     {c.type === "bonus" && (
                       <p className="text-xs text-primary">
                         ${Number(c.bonus_amount).toLocaleString()} per active user

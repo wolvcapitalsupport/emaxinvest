@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
 import { INVESTMENT_PLANS, calcExpectedReturn } from "@/lib/plans";
@@ -15,13 +16,18 @@ const planBorderColors = {
 export default function Invest() {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [searchParams] = useSearchParams();
+  const [selectedPlan, setSelectedPlan] = useState(() => {
+    const requested = searchParams.get("plan");
+    return INVESTMENT_PLANS.find(p => p.name === requested) ? requested : null;
+  });
   const [step, setStep] = useState(1); // 1: select plan, 2: payment details
   const [form, setForm] = useState({ payment_method: "", transaction_hash: "", payment_proof: "" });
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [paymentSettings, setPaymentSettings] = useState(null);
+  const [campaigns, setCampaigns] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -36,6 +42,18 @@ export default function Invest() {
 
     const settings = await base44.entities.PaymentSettings.list();
     setPaymentSettings(settings[0] || null);
+
+    try {
+      const allCampaigns = await base44.entities.Campaign.list("-created_date", 50);
+      setCampaigns(allCampaigns);
+    } catch {
+      // Campaign table may not exist in some environments — no discounts shown, not fatal
+    }
+  };
+
+  const getEffectiveAmount = (plan) => {
+    const discount = getActiveDiscountForPlan(campaigns, plan.name);
+    return discount ? Number(discount.discounted_amount) : plan.amount;
   };
 
   const handleFileUpload = async (e) => {
@@ -59,13 +77,14 @@ export default function Invest() {
     setSubmitting(true);
     try {
       const plan = INVESTMENT_PLANS.find(p => p.name === selectedPlan);
-      const expectedReturn = calcExpectedReturn(plan.amount, plan.roi);
+      const effectiveAmount = getEffectiveAmount(plan);
+      const expectedReturn = calcExpectedReturn(effectiveAmount, plan.roi);
       await base44.entities.Investment.create({
         user_id: user.id,
         user_email: user.email,
         user_name: user.full_name,
         plan: plan.name,
-        amount: plan.amount,
+        amount: effectiveAmount,
         roi_percentage: plan.roi,
         duration_days: plan.duration,
         expected_return: expectedReturn,
@@ -80,7 +99,7 @@ export default function Invest() {
         user_email: user.email,
         investment_id: "",
         type: "deposit",
-        amount: plan.amount,
+        amount: effectiveAmount,
         description: `${plan.name} plan investment submitted — awaiting approval`,
         status: "pending"
       });
@@ -141,7 +160,9 @@ export default function Invest() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {INVESTMENT_PLANS.map(plan => {
-                const expectedReturn = calcExpectedReturn(plan.amount, plan.roi);
+                const discount = getActiveDiscountForPlan(campaigns, plan.name);
+                const effectiveAmount = discount ? Number(discount.discounted_amount) : plan.amount;
+                const expectedReturn = calcExpectedReturn(effectiveAmount, plan.roi);
                 const selected = selectedPlan === plan.name;
                 return (
                   <button
@@ -155,9 +176,23 @@ export default function Invest() {
                         <CheckCircle size={14} className="text-slate-900" />
                       </div>
                     )}
-                    <p className="text-xs text-muted-foreground font-medium mb-1">{plan.badge}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-xs text-muted-foreground font-medium">{plan.badge}</p>
+                      {discount && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-orange-900/40 text-orange-300 border border-orange-700/50">
+                          {Math.round((1 - effectiveAmount / plan.amount) * 100)}% off
+                        </span>
+                      )}
+                    </div>
                     <h3 className="text-lg font-display font-bold mb-2">{plan.name}</h3>
-                    <p className="text-2xl font-display font-bold mb-3" style={{ color: "#93C5FD" }}>${plan.amount.toLocaleString()}</p>
+                    {discount ? (
+                      <div className="mb-3">
+                        <p className="text-sm text-muted-foreground line-through">${plan.amount.toLocaleString()}</p>
+                        <p className="text-2xl font-display font-bold" style={{ color: "#93C5FD" }}>${effectiveAmount.toLocaleString()}</p>
+                      </div>
+                    ) : (
+                      <p className="text-2xl font-display font-bold mb-3" style={{ color: "#93C5FD" }}>${plan.amount.toLocaleString()}</p>
+                    )}
                     <div className="space-y-1.5 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Duration</span>
@@ -193,6 +228,8 @@ export default function Invest() {
             {/* Plan Summary */}
             {(() => {
               const plan = INVESTMENT_PLANS.find(p => p.name === selectedPlan);
+              const discount = getActiveDiscountForPlan(campaigns, plan.name);
+              const effectiveAmount = discount ? Number(discount.discounted_amount) : plan.amount;
               return (
                 <div className="rounded-2xl p-5 mb-6" style={{ background: "rgba(147,197,253,0.07)", border: "1px solid rgba(147,197,253,0.18)" }}>
                   <p className="text-xs text-muted-foreground mb-1">Selected Plan</p>
@@ -202,8 +239,11 @@ export default function Invest() {
                       <p className="text-sm text-muted-foreground">{plan.duration} days · {plan.roi}% ROI</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-display font-bold text-2xl" style={{ color: "#93C5FD" }}>${plan.amount.toLocaleString()}</p>
-                      <p className="text-xs text-green-400">Returns: ${calcExpectedReturn(plan.amount, plan.roi).toLocaleString()}</p>
+                      {discount && (
+                        <p className="text-sm text-muted-foreground line-through">${plan.amount.toLocaleString()}</p>
+                      )}
+                      <p className="font-display font-bold text-2xl" style={{ color: "#93C5FD" }}>${effectiveAmount.toLocaleString()}</p>
+                      <p className="text-xs text-green-400">Returns: ${calcExpectedReturn(effectiveAmount, plan.roi).toLocaleString()}</p>
                     </div>
                   </div>
                 </div>

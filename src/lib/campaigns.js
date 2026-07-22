@@ -16,6 +16,26 @@ export const getActiveDiscountForPlan = (campaigns, planName) => {
   ) || null;
 };
 
+// Concrete, non-vague discount facts for a plan + its live discount campaign —
+// used by the admin form, admin list, popup, and Invest page so the real
+// numbers are always shown, regardless of what the admin typed in "message".
+export const getDiscountDetails = (plan, discount) => {
+  if (!plan || !discount) return null;
+  const discountedAmount = Number(discount.discounted_amount);
+  const percentOff = Math.round((1 - discountedAmount / plan.amount) * 100);
+  return {
+    planName: plan.name,
+    normalAmount: plan.amount,
+    discountedAmount,
+    percentOff,
+    durationDays: plan.duration,
+    roiPercent: plan.roi,
+    endsAt: discount.ends_at,
+  };
+};
+
+// sessionStorage-based dismissal so the popup shows once per login session,
+// not on every page navigation, but reappears on a fresh login.
 const DISMISSED_KEY = "emax_dismissed_campaigns";
 
 export const getDismissedCampaignIds = () => {
