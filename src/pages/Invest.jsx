@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
 import { INVESTMENT_PLANS, calcExpectedReturn } from "@/lib/plans";
 import { CheckCircle, Upload, X } from "lucide-react";
+import { getActiveDiscountForPlan } from "@/lib/campaigns";
 
 const planBorderColors = {
   Foundation: "border-slate-700/50 data-[selected=true]:border-blue-400/60",

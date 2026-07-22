@@ -289,6 +289,37 @@ export const base44 = {
         return data?.[0];
       },
     },
+    Campaign: {
+      list: async (order, limit) => {
+        return runOrderedQuery({
+          buildQuery: () => supabase.from('Campaign').select('*'),
+          order,
+          limit,
+        });
+      },
+      filter: async (match, order, limit) => {
+        return runOrderedQuery({
+          buildQuery: () => supabase.from('Campaign').select('*').match(match),
+          order,
+          limit,
+        });
+      },
+      create: async (payload) => {
+        const { data, error } = await supabase.from('Campaign').insert([payload]).select();
+        throwIfError(error);
+        return data?.[0];
+      },
+      update: async (id, payload) => {
+        const { data, error } = await supabase.from('Campaign').update(payload).eq('id', id).select();
+        throwIfError(error);
+        return data?.[0];
+      },
+      delete: async (id) => {
+        const { error } = await supabase.from('Campaign').delete().eq('id', id);
+        throwIfError(error);
+        return { id };
+      },
+    },
     WithdrawalRequest: {
       filter: async (match, order, limit) => {
         return runOrderedQuery({
