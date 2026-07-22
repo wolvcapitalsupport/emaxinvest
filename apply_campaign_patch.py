@@ -1,17 +1,208 @@
-import { useState, useEffect } from "react";
-<<<<<<< HEAD
+#!/usr/bin/env python3
+"""
+Applies everything from the campaign/bonus feature build that never landed:
+- New files: campaigns.js, CampaignPopup.jsx, AdminCampaigns.jsx, Campaign.jsonc
+- Patches: base44Client.js (Campaign entity), App.jsx (route), main.jsx
+  (QueryClientProvider), Dashboard.jsx (popup mount), Invest.jsx (discount wiring)
+
+Run from the root of your emaxinvest repo: python3 apply_campaign_patch.py
+Safe to re-run: each step checks whether it's already applied and skips if so.
+"""
+import os
+
+ROOT = os.getcwd()
+
+def w(path, content):
+    full = os.path.join(ROOT, path)
+    os.makedirs(os.path.dirname(full), exist_ok=True)
+    with open(full, "w") as f:
+        f.write(content)
+    print(f"[CREATED] {path}")
+
+def patch(path, old, new, label):
+    full = os.path.join(ROOT, path)
+    if not os.path.exists(full):
+        print(f"[SKIP] {path} not found — {label}")
+        return
+    with open(full) as f:
+        content = f.read()
+    if new in content:
+        print(f"[SKIP] {path} already patched — {label}")
+        return
+    if old not in content:
+        print(f"[FAIL] {path} — anchor not found for: {label}")
+        print(f"       Paste this file's content back to Claude to resolve manually.")
+        return
+    content = content.replace(old, new, 1)
+    with open(full, "w") as f:
+        f.write(content)
+    print(f"[PATCHED] {path} — {label}")
+
+# ---------- 1. New files ----------
+
+w("src/lib/campaigns.js", '''export const isCampaignLive = (campaign) => {
+  if (!campaign || !campaign.active) return false;
+  const now = new Date();
+  const starts = campaign.starts_at ? new Date(campaign.starts_at) : null;
+  const ends = campaign.ends_at ? new Date(campaign.ends_at) : null;
+  if (starts && now < starts) return false;
+  if (ends && now > ends) return false;
+  return true;
+};
+
+export const getLiveCampaigns = (campaigns) => (campaigns || []).filter(isCampaignLive);
+
+export const getActiveDiscountForPlan = (campaigns, planName) => {
+  return getLiveCampaigns(campaigns).find(
+    (c) => c.type === "discount" && c.plan_name === planName && Number(c.discounted_amount) > 0
+  ) || null;
+};
+
+const DISMISSED_KEY = "emax_dismissed_campaigns";
+
+export const getDismissedCampaignIds = () => {
+  try {
+    return JSON.parse(sessionStorage.getItem(DISMISSED_KEY) || "[]");
+  } catch {
+    return [];
+  }
+};
+
+export const dismissCampaign = (id) => {
+  try {
+    const current = getDismissedCampaignIds();
+    if (!current.includes(id)) {
+      sessionStorage.setItem(DISMISSED_KEY, JSON.stringify([...current, id]));
+    }
+  } catch {
+    // sessionStorage unavailable — fail silently, popup will just reshow
+  }
+};
+''')
+
+w("src/components/CampaignPopup.jsx", '''import { useState, useEffect } from "react";
+import { X, Megaphone, Gift, Tag } from "lucide-react";
+import { base44 } from "@/api/base44Client";
+import { getLiveCampaigns, getDismissedCampaignIds, dismissCampaign } from "@/lib/campaigns";
+
+const typeIcon = {
+  announcement: Megaphone,
+  bonus: Gift,
+  discount: Tag,
+};
+
+export default function CampaignPopup() {
+  const [campaign, setCampaign] = useState(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const all = await base44.entities.Campaign.list("-created_date", 50);
+        const live = getLiveCampaigns(all);
+        const dismissed = getDismissedCampaignIds();
+        const next = live.find(c => !dismissed.includes(c.id));
+        if (!cancelled && next) {
+          setCampaign(next);
+          setTimeout(() => setVisible(true), 600);
+        }
+      } catch {
+        // Campaign table may not exist yet in some environments — fail silently
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!campaign) return null;
+
+  const close = () => {
+    setVisible(false);
+    dismissCampaign(campaign.id);
+    setTimeout(() => setCampaign(null), 200);
+  };
+
+  const Icon = typeIcon[campaign.type] || Megaphone;
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center px-4 transition-opacity duration-200 ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+      style={{ background: "rgba(0,0,0,0.6)" }}
+      onClick={close}
+    >
+      <div
+        className={`bg-card border border-border rounded-2xl p-6 max-w-sm w-full relative transition-transform duration-200 ${visible ? "scale-100" : "scale-95"}`}
+        onClick={e => e.stopPropagation()}
+      >
+        <button onClick={close} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
+          <X size={18} />
+        </button>
+        <div
+          className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+          style={{ background: "rgba(147,197,253,0.15)", border: "1px solid rgba(147,197,253,0.25)" }}
+        >
+          <Icon size={22} className="text-blue-300" />
+        </div>
+        <h3 className="text-lg font-display font-bold mb-2">{campaign.title}</h3>
+        <p className="text-sm text-muted-foreground mb-4">{campaign.message}</p>
+        {campaign.type === "discount" && campaign.plan_name && (
+          <div className="rounded-lg bg-secondary/60 border border-border px-3 py-2 mb-4">
+            <p className="text-xs text-muted-foreground">{campaign.plan_name} plan entry</p>
+            <p className="text-base font-semibold text-primary">
+              ${Number(campaign.discounted_amount).toLocaleString()}
+            </p>
+          </div>
+        )}
+        {campaign.type === "bonus" && campaign.bonus_amount && (
+          <div className="rounded-lg bg-secondary/60 border border-border px-3 py-2 mb-4">
+            <p className="text-xs text-muted-foreground">Bonus credit</p>
+            <p className="text-base font-semibold text-primary">
+              ${Number(campaign.bonus_amount).toLocaleString()}
+            </p>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground mb-4">
+          Ends {new Date(campaign.ends_at).toLocaleDateString()}
+        </p>
+        <button
+          onClick={close}
+          className="w-full py-2.5 rounded-lg text-sm font-semibold hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, #93C5FD, #BFDBFE)", color: "#0c0f18" }}
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+}
+''')
+
+w("base44/entities/Campaign.jsonc", '''{
+  "name": "Campaign",
+  "type": "object",
+  "properties": {
+    "type": { "type": "string", "enum": ["announcement", "bonus", "discount"] },
+    "title": { "type": "string" },
+    "message": { "type": "string" },
+    "plan_name": { "type": "string", "enum": ["Foundation", "Growth", "Accelerator", "Legacy"] },
+    "discounted_amount": { "type": "number" },
+    "bonus_amount": { "type": "number" },
+    "applied": { "type": "boolean", "default": false },
+    "starts_at": { "type": "string" },
+    "ends_at": { "type": "string" },
+    "active": { "type": "boolean", "default": true }
+  },
+  "required": ["type", "title", "message", "ends_at"]
+}
+''')
+
+# AdminCampaigns.jsx — full page, safe to always (re)write since it's new
+w("src/pages/AdminCampaigns.jsx", '''import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
 import { Megaphone, Plus, Trash2, X, Gift } from "lucide-react";
 import { INVESTMENT_PLANS } from "@/lib/plans";
 import { isCampaignLive } from "@/lib/campaigns";
-=======
-import { base44, supabase } from "@/api/base44Client";
-import AppLayout from "@/components/layout/AppLayout";
-import { Megaphone, Plus, Trash2, X, Gift } from "lucide-react";
-import { INVESTMENT_PLANS } from "@/lib/plans";
-import { isCampaignLive, getDiscountDetails } from "@/lib/campaigns";
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
 
 const emptyForm = {
   type: "announcement",
@@ -23,10 +214,6 @@ const emptyForm = {
   starts_at: "",
   ends_at: "",
   active: true,
-<<<<<<< HEAD
-=======
-  notify_email: true,
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
 };
 
 export default function AdminCampaigns() {
@@ -39,10 +226,6 @@ export default function AdminCampaigns() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [applyingId, setApplyingId] = useState(null);
-<<<<<<< HEAD
-=======
-  const [emailStatus, setEmailStatus] = useState("");
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
 
   useEffect(() => { loadData(); }, []);
 
@@ -101,31 +284,6 @@ export default function AdminCampaigns() {
         ends_at: new Date(form.ends_at).toISOString(),
         active: true,
       });
-<<<<<<< HEAD
-=======
-
-      if (form.notify_email) {
-        setEmailStatus("Sending notification emails...");
-        try {
-          const { data, error: fnError } = await supabase.functions.invoke("admin-send-email", {
-            body: {
-              audience: "broadcast",
-              mode: "freeform",
-              subject: form.title.trim(),
-              message: form.message.trim(),
-            },
-          });
-          if (fnError || data?.error) {
-            setEmailStatus(`Campaign created, but email failed: ${fnError?.message || data?.error}`);
-          } else {
-            setEmailStatus(`Campaign created. Emailed ${data.sent} user(s)${data.failedCount ? `, ${data.failedCount} failed` : ""}.`);
-          }
-        } catch (fnErr) {
-          setEmailStatus(`Campaign created, but email failed: ${fnErr.message || fnErr}`);
-        }
-      }
-
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
       await loadData();
       resetForm();
     } catch (e) {
@@ -146,9 +304,6 @@ export default function AdminCampaigns() {
     await loadData();
   };
 
-  // Credits every active user's wallet with the real bonus_amount, logs a
-  // Transaction per user for the audit trail, then marks the campaign as
-  // applied so it can never be double-run.
   const applyBonus = async (campaign) => {
     const amount = Number(campaign.bonus_amount);
     if (!amount || amount <= 0) return;
@@ -243,7 +398,6 @@ export default function AdminCampaigns() {
             />
 
             {form.type === "discount" && (
-<<<<<<< HEAD
               <div className="grid grid-cols-2 gap-3">
                 <select
                   value={form.plan_name}
@@ -262,42 +416,6 @@ export default function AdminCampaigns() {
                   placeholder="New minimum entry amount ($)"
                   className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
                 />
-=======
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <select
-                    value={form.plan_name}
-                    onChange={e => setForm(f => ({ ...f, plan_name: e.target.value }))}
-                    className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                  >
-                    <option value="">Select plan...</option>
-                    {INVESTMENT_PLANS.map(p => (
-                      <option key={p.name} value={p.name}>{p.name} (normally ${p.amount.toLocaleString()})</option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    value={form.discounted_amount}
-                    onChange={e => setForm(f => ({ ...f, discounted_amount: e.target.value }))}
-                    placeholder="New minimum entry amount ($)"
-                    className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                  />
-                </div>
-                {(() => {
-                  const plan = INVESTMENT_PLANS.find(p => p.name === form.plan_name);
-                  const discounted = parseFloat(form.discounted_amount);
-                  if (!plan || isNaN(discounted) || discounted <= 0 || discounted >= plan.amount) return null;
-                  const percentOff = Math.round((1 - discounted / plan.amount) * 100);
-                  return (
-                    <div className="rounded-lg bg-secondary/60 border border-border px-3 py-2 text-xs text-muted-foreground space-y-0.5">
-                      <p>This is exactly what users will see and get — not a marketing estimate:</p>
-                      <p className="text-primary font-medium">
-                        {plan.name}: ${plan.amount.toLocaleString()} → ${discounted.toLocaleString()} entry ({percentOff}% off), {plan.duration}-day term, {plan.roi}% ROI, unchanged
-                      </p>
-                    </div>
-                  );
-                })()}
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
               </div>
             )}
 
@@ -337,24 +455,7 @@ export default function AdminCampaigns() {
               </div>
             </div>
 
-<<<<<<< HEAD
             {error && <p className="text-xs text-destructive">{error}</p>}
-=======
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.notify_email}
-                onChange={e => setForm(f => ({ ...f, notify_email: e.target.checked }))}
-                className="rounded border-border"
-              />
-              <span className="text-muted-foreground">
-                Email all users now (uses the title and message above) — turn off if scheduling for later
-              </span>
-            </label>
-
-            {error && <p className="text-xs text-destructive">{error}</p>}
-            {emailStatus && <p className="text-xs text-primary">{emailStatus}</p>}
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
 
             <button
               onClick={submitCampaign}
@@ -392,26 +493,11 @@ export default function AdminCampaigns() {
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">{c.message}</p>
-<<<<<<< HEAD
                     {c.type === "discount" && (
                       <p className="text-xs text-primary">
                         {c.plan_name}: ${c.discounted_amount?.toLocaleString()} entry (discounted)
                       </p>
                     )}
-=======
-                    {c.type === "discount" && (() => {
-                      const plan = INVESTMENT_PLANS.find(p => p.name === c.plan_name);
-                      if (!plan) return (
-                        <p className="text-xs text-primary">{c.plan_name}: ${c.discounted_amount?.toLocaleString()} entry (discounted)</p>
-                      );
-                      const percentOff = Math.round((1 - Number(c.discounted_amount) / plan.amount) * 100);
-                      return (
-                        <p className="text-xs text-primary">
-                          {plan.name}: ${plan.amount.toLocaleString()} → ${Number(c.discounted_amount).toLocaleString()} ({percentOff}% off) · {plan.duration}-day term · {plan.roi}% ROI unchanged
-                        </p>
-                      );
-                    })()}
->>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
                     {c.type === "bonus" && (
                       <p className="text-xs text-primary">
                         ${Number(c.bonus_amount).toLocaleString()} per active user
@@ -455,3 +541,115 @@ export default function AdminCampaigns() {
     </AppLayout>
   );
 }
+''')
+
+# ---------- 2. Patches to existing files ----------
+
+patch(
+    "src/api/base44Client.js",
+    """    Transaction: {
+      filter: async (match, order, limit) => {
+        return runOrderedQuery({
+          buildQuery: () => supabase.from('Transaction').select('*').match(match),
+          order,
+          limit,
+        });
+      },
+      create: async (payload) => {
+        const { data, error } = await supabase.from('Transaction').insert([payload]).select();
+        throwIfError(error);
+        return data?.[0];
+      },
+    },""",
+    """    Transaction: {
+      filter: async (match, order, limit) => {
+        return runOrderedQuery({
+          buildQuery: () => supabase.from('Transaction').select('*').match(match),
+          order,
+          limit,
+        });
+      },
+      create: async (payload) => {
+        const { data, error } = await supabase.from('Transaction').insert([payload]).select();
+        throwIfError(error);
+        return data?.[0];
+      },
+    },
+    Campaign: {
+      list: async (order, limit) => {
+        return runOrderedQuery({
+          buildQuery: () => supabase.from('Campaign').select('*'),
+          order,
+          limit,
+        });
+      },
+      filter: async (match, order, limit) => {
+        return runOrderedQuery({
+          buildQuery: () => supabase.from('Campaign').select('*').match(match),
+          order,
+          limit,
+        });
+      },
+      create: async (payload) => {
+        const { data, error } = await supabase.from('Campaign').insert([payload]).select();
+        throwIfError(error);
+        return data?.[0];
+      },
+      update: async (id, payload) => {
+        const { data, error } = await supabase.from('Campaign').update(payload).eq('id', id).select();
+        throwIfError(error);
+        return data?.[0];
+      },
+      delete: async (id) => {
+        const { error } = await supabase.from('Campaign').delete().eq('id', id);
+        throwIfError(error);
+        return { id };
+      },
+    },""",
+    "add Campaign entity CRUD"
+)
+
+patch(
+    "src/App.jsx",
+    "import AdminUsers from './pages/AdminUsers.jsx';",
+    "import AdminUsers from './pages/AdminUsers.jsx';\nimport AdminCampaigns from './pages/AdminCampaigns.jsx';",
+    "import AdminCampaigns"
+)
+
+patch(
+    "src/App.jsx",
+    '<Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />',
+    '<Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />\n        <Route path="/admin/campaigns" element={<AdminRoute><AdminCampaigns /></AdminRoute>} />',
+    "add /admin/campaigns route"
+)
+
+patch(
+    "src/main.jsx",
+    "import { BrowserRouter } from 'react-router-dom'\nimport App from '@/App.jsx'\nimport { AuthProvider } from './lib/AuthContext.jsx'\nimport '@/index.css'\n\nReactDOM.createRoot(document.getElementById('root')).render(\n  <BrowserRouter>\n    <AuthProvider>\n      <App />\n    </AuthProvider>\n  </BrowserRouter>\n)",
+    "import { BrowserRouter } from 'react-router-dom'\nimport { QueryClientProvider } from '@tanstack/react-query'\nimport App from '@/App.jsx'\nimport { AuthProvider } from './lib/AuthContext.jsx'\nimport { queryClientInstance } from './lib/query-client.js'\nimport '@/index.css'\n\nReactDOM.createRoot(document.getElementById('root')).render(\n  <BrowserRouter>\n    <QueryClientProvider client={queryClientInstance}>\n      <AuthProvider>\n        <App />\n      </AuthProvider>\n    </QueryClientProvider>\n  </BrowserRouter>\n)",
+    "wrap app in QueryClientProvider (fixes blank-page crash on any unmatched route)"
+)
+
+patch(
+    "src/pages/Dashboard.jsx",
+    'import { accrueActiveInvestments } from "@/lib/roiAccrual";',
+    'import { accrueActiveInvestments } from "@/lib/roiAccrual";\nimport CampaignPopup from "@/components/CampaignPopup";',
+    "import CampaignPopup"
+)
+
+patch(
+    "src/pages/Dashboard.jsx",
+    '<AppLayout user={user} userProfile={userProfile}>\n      <div className="space-y-8">',
+    '<AppLayout user={user} userProfile={userProfile}>\n      <CampaignPopup />\n      <div className="space-y-8">',
+    "mount CampaignPopup"
+)
+
+patch(
+    "src/pages/Invest.jsx",
+    'import { CheckCircle, Upload, X } from "lucide-react";',
+    'import { CheckCircle, Upload, X } from "lucide-react";\nimport { getActiveDiscountForPlan } from "@/lib/campaigns";',
+    "import getActiveDiscountForPlan"
+)
+
+print("\\nDone. Review any [FAIL] lines above — those need a manual look.")
+print("Next: npx vite build  (check for errors), then git add -A && git commit && git push && vercel --prod")

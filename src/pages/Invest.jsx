@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import AppLayout from "@/components/layout/AppLayout";
 import { INVESTMENT_PLANS, calcExpectedReturn } from "@/lib/plans";
@@ -15,7 +16,11 @@ const planBorderColors = {
 export default function Invest() {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [searchParams] = useSearchParams();
+  const [selectedPlan, setSelectedPlan] = useState(() => {
+    const requested = searchParams.get("plan");
+    return INVESTMENT_PLANS.find(p => p.name === requested) ? requested : null;
+  });
   const [step, setStep] = useState(1); // 1: select plan, 2: payment details
   const [form, setForm] = useState({ payment_method: "", transaction_hash: "", payment_proof: "" });
   const [uploading, setUploading] = useState(false);
@@ -175,7 +180,11 @@ export default function Invest() {
                       <p className="text-xs text-muted-foreground font-medium">{plan.badge}</p>
                       {discount && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-orange-900/40 text-orange-300 border border-orange-700/50">
+<<<<<<< HEAD
                           Discounted
+=======
+                          {Math.round((1 - effectiveAmount / plan.amount) * 100)}% off
+>>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
                         </span>
                       )}
                     </div>

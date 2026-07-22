@@ -2,6 +2,7 @@
   "name": "Campaign",
   "type": "object",
   "properties": {
+<<<<<<< HEAD
     "type": {
       "type": "string",
       "enum": ["announcement", "bonus", "discount"]
@@ -36,6 +37,18 @@
       "type": "boolean",
       "default": true
     }
+=======
+    "type": { "type": "string", "enum": ["announcement", "bonus", "discount"] },
+    "title": { "type": "string" },
+    "message": { "type": "string" },
+    "plan_name": { "type": "string", "enum": ["Foundation", "Growth", "Accelerator", "Legacy"] },
+    "discounted_amount": { "type": "number" },
+    "bonus_amount": { "type": "number" },
+    "applied": { "type": "boolean", "default": false },
+    "starts_at": { "type": "string" },
+    "ends_at": { "type": "string" },
+    "active": { "type": "boolean", "default": true }
+>>>>>>> 4bfc9018e824f455824599e93746a73686aaaafc
   },
   "required": ["type", "title", "message", "ends_at"]
 }
